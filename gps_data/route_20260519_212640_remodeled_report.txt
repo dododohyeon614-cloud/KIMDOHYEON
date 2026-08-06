@@ -1,0 +1,12 @@
+Safe route remodel report
+=========================
+input_csv: /home/dohyeon/white_ws/gps_data/route_20260519_212640.csv
+output_csv: /home/dohyeon/white_ws/gps_data/route_20260519_212640_remodeled.csv
+original_points: 294
+remodeled_points: 169
+original_length_m: 42.088
+remodeled_length_m: 42.041
+spacing_m: 0.250
+straight_smoothing_iterations: 1
+max_lateral_shift_m: 0.080
+corner_cutting: disabled

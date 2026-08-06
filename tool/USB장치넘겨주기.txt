@@ -1,0 +1,225 @@
+# Windows에서 연결된 USB 장치를 리눅스로 넘겨줄 때 사용
+PS C:\Users\windo> usbipd list
+Connected:
+BUSID  VID:PID    DEVICE                                                        STATE
+1-3    30c9:0069  HP Wide Vision HD Camera, Camera DFU Device                   Not shared
+1-4    0e8d:223c  MediaTek Bluetooth Adapter                                    Not shared
+5-1    10c4:ea60  Silicon Labs CP210x USB to UART Bridge(COM3)                  Not shared
+5-2    1546:01a9  USB 직렬 장치(COM14)                                          Not shared
+5-3    2341:0042  Arduino Mega 2560(COM4)                                       Not shared
+
+Persisted:
+GUID                                  DEVICE
+
+usbipd bind --force --busid 5-1
+usbipd attach --wsl --busid 5-1
+
+usbipd bind --force --busid 5-2
+usbipd attach --wsl --busid 5-2
+
+usbipd bind --force --busid 5-3
+usbipd attach --wsl --busid 5-3
+
+bind는 최초 1회만, 이후 연결할때마다 attach 명령 실행해줘야 함
+
+import rclpy
+from rclpy.node import Node
+
+from sensor_msgs.msg import Imu
+from geometry_msgs.msg import TransformStamped
+from iahrs_driver_interface.srv import Set
+
+import tf2_ros
+from transforms3d import euler
+
+import io
+import serial
+import time
+import math
+
+
+class IahrsDriver(Node):
+    CONF_SYNC_LIN_ACC = 0x0004  # 센서 좌표계 가속도 (g)
+    CONF_SYNC_ANG_VEL = 0x0008  # 센서 좌표계 각속도 (deg/s)
+    CONF_SYNC_EULER = 0x0040    # 오일러각
+    CONF_SYNC_QUATERNION = 0x0080  # 쿼터니언
+
+    def __init__(self):
+        super().__init__("iahrs_driver_node")
+
+        # parameters
+        self._tf_prefix = self.get_parameter_or("tf_prefix", "")
+        self._is_send_tf = self.get_parameter_or("send_tf", True)
+
+        # 내부 상태
+        self._new_data_flag = False
+
+        # TF broadcaster
+        self._br = tf2_ros.TransformBroadcaster(self)
+
+        # 포트 설정 (사용자 환경에 맞춰 확인 필요)
+        self.port_name = "/dev/ttyUSB0"
+        self.baud_rate = 115200
+        self._ser = serial.Serial(self.port_name, self.baud_rate)
+
+        self._ser_io = io.TextIOWrapper(
+            io.BufferedRWPair(self._ser, self._ser, 1),
+            newline="\n",
+            line_buffering=True,
+        )
+        self._ser.flushInput()
+        self._ser.reset_input_buffer()
+        self._ser.reset_output_buffer()
+
+        self._msg = Imu()
+
+        # 공분산 값 설정 (기존과 동일)
+        self._msg.linear_acceleration_covariance[0] = 0.0064
+        self._msg.linear_acceleration_covariance[4] = 0.0063
+        self._msg.linear_acceleration_covariance[8] = 0.0064
+
+        self._msg.angular_velocity_covariance[0] = 0.032 * (math.pi / 180.0)
+        self._msg.angular_velocity_covariance[4] = 0.028 * (math.pi / 180.0)
+        self._msg.angular_velocity_covariance[8] = 0.006 * (math.pi / 180.0)
+
+        self._msg.orientation_covariance[0] = 0.013 * (math.pi / 180.0)
+        self._msg.orientation_covariance[4] = 0.011 * (math.pi / 180.0)
+        self._msg.orientation_covariance[8] = 0.006 * (math.pi / 180.0)
+
+        # 센서 데이터 수신 시작
+        self._reset_sensor()
+
+        self._imu_pub_handler = self.create_publisher(Imu, "imu/data", 1)
+        self.create_service(Set, "reset_sensor", self._reset_sensor_callback)
+        self.create_service(Set, "reset_angle", self._reset_angle_callback)
+        self.timer = self.create_timer(0.01, self._serial_timer)
+
+    def _set_sync_port(self):
+        self._write_port_timeout("so=1")
+
+    def _set_sync_period(self, period):
+        self._write_port_timeout("sp={0}".format(period))
+
+    def _set_sync_data(self, sync_data_type):
+        sync_conf = "{:X}".format(sync_data_type)
+        self._write_port_timeout("sd=0x" + sync_conf)
+
+    def _is_port_available(self):
+        return self._ser.isOpen()
+
+    def _serial_timer(self):
+        if self._is_port_available() is True:
+            try:
+                line = self._ser.readline()
+                sync_data = line.split(b"\r\n")[0].decode("utf-8").strip()
+                if sync_data and len(sync_data.split("=")) == 1:
+                    sync_data_splitted = sync_data.split(",")
+
+                    if len(sync_data_splitted) == 9:
+                        self._new_data_flag = True
+                        data = list(map(lambda x: float(x), sync_data_splitted))
+
+                        # 가속도 및 각속도 저장
+                        self._msg.linear_acceleration.x = data[0] * 9.80665
+                        self._msg.linear_acceleration.y = data[1] * 9.80665
+                        self._msg.linear_acceleration.z = data[2] * 9.80665
+
+                        self._msg.angular_velocity.x = data[3] * (math.pi / 180.0)
+                        self._msg.angular_velocity.y = data[4] * (math.pi / 180.0)
+                        self._msg.angular_velocity.z = data[5] * (math.pi / 180.0)
+
+                        # 오일러각(절대방위 포함) -> 쿼터니언 변환
+                        # data[8]이 하드웨어에서 전송하는 절대 Yaw(방위각)입니다.
+                        q = euler.euler2quat(
+                            data[6] * (math.pi / 180.0),
+                            data[7] * (math.pi / 180.0),
+                            data[8] * (math.pi / 180.0),
+                            "sxyz",
+                        )
+                        self._msg.orientation.w = q[0]
+                        self._msg.orientation.x = q[1]
+                        self._msg.orientation.y = q[2]
+                        self._msg.orientation.z = q[3]
+
+                        self._msg.header.stamp = self.get_clock().now().to_msg()
+                        self._msg.header.frame_id = (self._tf_prefix + "/imu_link").lstrip("/")
+
+                        self._imu_pub_handler.publish(self._msg)
+                        if self._is_send_tf is True:
+                            self._send_tf()
+            except Exception as e:
+                self.get_logger().error(f"Serial read error: {e}")
+
+    def _write_port(self, buffer):
+        if self._is_port_available() is True:
+            self._ser.write((buffer + "\n").encode())
+
+    def _write_port_timeout(self, buffer, timeout=0.5):
+        self._write_port(buffer)
+        started_time = time.time()
+        while True:
+            if self._is_port_available() is True:
+                data = (self._ser.readline().split(b"\r\n")[0]).decode("utf-8").strip()
+                if data and data == buffer:
+                    break
+            else:
+                raise Exception("USB_NOT_CONNECTED")
+            if time.time() - started_time >= timeout:
+                # 타임아웃 발생 시 경고만 띄우고 넘어갑니다 (부팅 시 충돌 방지)
+                self.get_logger().warn(f"Command {buffer} timeout")
+                break
+        return True
+
+    def _send_tf(self):
+        t = TransformStamped()
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = (self._tf_prefix + "/base_link").lstrip("/")
+        t.child_frame_id = (self._tf_prefix + "/imu_link").lstrip("/")
+
+        t.transform.rotation.x = self._msg.orientation.x
+        t.transform.rotation.y = self._msg.orientation.y
+        t.transform.rotation.z = self._msg.orientation.z
+        t.transform.rotation.w = self._msg.orientation.w
+
+        self._br.sendTransform(t)
+
+    def _reset_sensor(self):
+        """
+        [중요] 절대 방위를 유지하기 위해 하드웨어를 리셋하거나 
+        영점을 잡는 'za', 'c=7' 명령어를 실행하지 않습니다.
+        """
+        self.get_logger().info("Initializing iAHRS as Absolute Heading Listener...")
+        
+        self._set_sync_port()          # USB/Serial 출력 설정
+        self._set_sync_period(50)      # 20Hz 데이터 주기 설정
+        self._set_sync_data(
+            self.CONF_SYNC_LIN_ACC
+            | self.CONF_SYNC_ANG_VEL
+            | self.CONF_SYNC_EULER
+        )
+
+    def _reset_angle(self):
+        # 수동 서비스 호출 시에만 리셋되도록 남겨둠 (일반 주행 시 호출 금지)
+        self._write_port("c=7")
+
+    def _reset_sensor_callback(self, req, res):
+        self._reset_sensor()
+        res.result = True
+        return res
+
+    def _reset_angle_callback(self, req, res):
+        self._reset_angle()
+        res.result = True
+        return res
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    iahrs_driver_node = IahrsDriver()
+    rclpy.spin(iahrs_driver_node)
+    iahrs_driver_node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()

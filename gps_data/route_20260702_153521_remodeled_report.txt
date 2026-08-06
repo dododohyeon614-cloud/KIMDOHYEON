@@ -1,0 +1,18 @@
+Smart route remodel report
+==========================
+input_csv: /home/dohyeon/white_ws/gps_data/route_20260702_153521.csv
+output_csv: /home/dohyeon/white_ws/gps_data/route_20260702_153521_remodeled.csv
+original_points: 312
+dedup_points: 227
+remodeled_points: 323
+original_length_m: 81.719
+remodeled_length_m: 80.238
+spacing_m: 0.250
+input_epsilon_m: 0.080
+rdp_epsilon_m: 0.176
+skeleton_points: 30
+straight_segments: 22
+rounded_corners: 21
+straight_model: exact skeleton line
+corner_model: cubic Bezier fillet
+corner_cutting: limited conservative fillet

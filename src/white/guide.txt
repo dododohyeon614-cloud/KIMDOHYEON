@@ -1,0 +1,55 @@
+# 워크스페이스 생성
+cd ~
+mkdir -p white_ws/src
+cd white_ws/src
+
+# ROS2 패키지 생성 (Python)
+ros2 pkg create white --build-type ament_python --dependencies rclpy geometry_msgs std_msgs sensor_msgs nav_msgs
+
+# 런치 디렉토리 생성
+mkdir -p white/launch
+
+# Python 스크립트가 저장될 디렉토리 확인
+# 경로: ~/white_ws/src/white/white/
+
+cd ~/white_ws
+
+# 빌드
+colcon build
+
+# 환경 설정 소스
+source install/setup.bash
+
+# (선택) bashrc에 자동 추가
+echo "source ~/white_ws/install/setup.bash" >> ~/.bashrc
+
+
+터미널 1 - GPS 드라이버 실행:
+
+Copy# GPS 포트 확인 (예: /dev/ttyACM1)
+ls /dev/ttyACM*
+sudo chmod 777 /dev/ttyACM0
+sudo chmod 777 /dev/ttyACM1
+
+
+# 터미널 1: 백그라운드 시스템
+cd ~/white_ws
+source install/setup.bash
+ros2 launch white white.launch.py
+
+# 터미널 2: GPS 드라이버(아래는 테스트용 가짜신호, 위에가 진짜, 포트번호 맞게 바꿀것)
+ros2 run nmea_navsat_driver nmea_serial_driver --ros-args -p port:=/dev/ttyACM0 -p baud:=115200
+ros2 run nmea_navsat_driver nmea_serial_driver --ros-args -p port:=/dev/ttyACM1 -p baud:=115200
+
+ros2 topic pub /fix sensor_msgs/msg/NavSatFix "{latitude: 37.5, longitude: 127.0, altitude: 10.0}" --rate 1
+
+# 터미널 3: 메인 인터페이스
+source ~/white_ws/install/setup.bash
+ros2 run white gps_mapping
+
+
+메뉴에서 선택
+
+1: 새 경로 매핑 → 컨트롤러로 주행 → Enter로 종료
+2: 저장된 경로로 자율주행
+3: 경로 목록 보기

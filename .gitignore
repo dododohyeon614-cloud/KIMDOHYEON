@@ -1,0 +1,17 @@
+# ── colcon 빌드 산출물 (재생성 가능, 추적 제외) ──
+build/
+install/
+log/
+
+# ── Python ──
+__pycache__/
+*.pyc
+
+# ── 대용량 로그 데이터 (별도 백업 권장) ──
+ros2bag/
+tool/rosbag2_*/
+
+# ── OS / 에디터 ──
+.vscode/
+Thumbs.db
+.DS_Store

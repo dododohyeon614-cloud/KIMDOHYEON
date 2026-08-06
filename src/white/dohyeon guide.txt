@@ -1,0 +1,119 @@
+1/5 자율주행 RC카 시스템 — 전체 구축 & 문제해결 매뉴얼
+
+
+SMC2000 → gps_nmea_driver → gps_manager → waypoint_follower → motor_controller → driver → Arduino → RC카 ↑ gps_mapper_v2 (매핑/자율주행 UI)
+---------------------------------------------------------------------------------------------
+
+항상 빌드 전 clean 필수:
+rm -rf build install log
+colcon build --symlink-install
+
+
+
+
+
+터미널 1 — 환경 설정
+source ~/.bashrc
+export ROS_DOMAIN_ID=0   확인 echo $ROS_DOMAIN_ID
+
+
+ros2 launch white one_launch.py
+
+새 터미널(터미널 2):
+source ~/.bashrc
+ros2 run white gps_mapper_v2
+메뉴가 뜬다:
+1) Live GPS Status 2) Start Mapping 3) List Routes 4) Drive Route 5) Exit
+
+gps_mapper_v2 메뉴에서 2 입력:
+이제 RC카를 수동 운전 → 경로 기록
+Enter → 저장 완료
+
+
+자율주행(Repeat) 절차
+gps_mapper_v2 메뉴에서 4 입력:
+
+
+
+정상 동작 확인용 토픽
+
+
+GPS Fix (SMC2000)
+ros2 topic echo /fix
+
+ENU 좌표
+ros2 topic echo /gps/enu
+
+Heading
+ros2 topic echo /gps/heading
+
+자율주행 명령
+ros2 topic echo /cmd_vel_raw
+--------------------------------------------------------------------------
+
+RViz2에서 경로 시각화
+터미널:
+
+rviz2
+Add → Path → topic:
+
+/route_visualization
+그리고 별도 터미널에서 경로 표시:
+
+ros2 run white route_visualizer ~/white_ws/gps_data/route_XXXX.csv
+
+---------------------------------------------------------------------------
+
+자주 발생한 오류 + 해결 방법 (정리)
+
+1) /fix 안 나옴
+원인: GNSS VMware guest 연결 안됨
+해결:
+VM → Removable Devices → u-blox GNSS → Connect to Guest  또는 sudo chmod 666 /dev/ttyACM0
+
+
+2) /gps/enu 안 나옴
+원인: Domain mismatch
+해결:
+export ROS_DOMAIN_ID=0
+
+
+
+3) 자율주행이 안 움직임
+원인: waypoint_follower 실행 안 됨 / 파일명 오타
+해결:
+ls ~/white_ws/src/white/white
+
+
+
+4) motor_controller 죽음
+원인: motor_control.py → motor_controller.py 이름 오류
+해결:
+mv motor_control.py motor_controller.py
+
+
+
+5) steering 값 너무 큼
+원인: 초기 heading 오류
+해결:
+→ 새로운 waypoint_follower의 초기 헤딩 보정기 (전/후진) 로 해결
+
+
+
+ 6) gps_mapper 메뉴 안 뜸
+원인: driver 로그와 같은 터미널에서 실행함
+해결:
+→ gps_mapper_v2는 반드시 별도 터미널
+
+
+
+
+
+
+
+
+
+
+
+
+
