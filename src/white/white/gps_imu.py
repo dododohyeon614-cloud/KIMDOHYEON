@@ -93,6 +93,65 @@ GPS_STATUS_EMOJI = {
     GPS_STATUS_SBAS_FIX: "🟠", GPS_STATUS_GBAS_FIX: "🟢",
 }
 
+# ════════════════════════════════════════════════════════════════════════════
+#  GPS 품질 등급 (GQ_*)  ― ★NavSatFix.status 와 별개인 자체 등급이다★
+# ════════════════════════════════════════════════════════════════════════════
+#  왜 필요한가:
+#    sensor_msgs/NavSatStatus 의 status 는 '정확도'를 적는 칸이 아니라
+#    ★보정을 어디서 받았는가★ 를 적는 칸이다.
+#      0 = 아무한테도 안 받음 / 1 = 위성한테 받음(SBAS) / 2 = 땅에서 받음(GBAS)
+#    RTK 는 정수 모호도를 풀었든(Fixed) 못 풀었든(Float) ★지상 기준국 보정을
+#    받는 건 똑같아서 둘 다 status=2★ 로 들어온다. 메시지 정의에 그 둘을
+#    구분할 자리가 아예 없다. 드라이버가 정보를 뭉갠 게 아니라, 정확도는
+#    애초에 position_covariance 쪽에 담도록 설계돼 있고 드라이버는 그대로
+#    담아 보내고 있었다 — 우리 코드가 그 칸을 한 번도 안 읽었을 뿐이다.
+#
+#  RTK Fixed / Float 이 뭔가:
+#    RTK 가 cm 정밀도를 내는 비결은 파장 19cm 인 반송파가 위성부터 우리까지
+#    ★몇 개 들어가는지★ 를 세는 것이다. 그 개수는 정수여야 하는데,
+#      · 정수로 확정하면        → Fixed, 오차 1~2cm
+#      · 확정 못 하고 실수로 두면 → Float, 오차 30cm~2m
+#    Float 은 고장이 아니라 '아직 못 굳힌' 어중간한 상태다. 위성이 가리거나
+#    신호가 반사돼 들어오면 떨어지고, ★다시 굳는 데 시간이 오래 걸린다★.
+#
+#  실측 근거 (white_ws 로스백 49개, fix 14,394 샘플):
+#    status=2 인 14,166 개의 수평 std 가 두 덩어리로 완전히 갈라진다.
+#      0.0106 ~ 0.018 m : 13,540 개 (95.6%)  ← GGA quality 4 = RTK Fixed
+#      1.778  ~ 3.04  m :    626 개 ( 4.4%)  ← GGA quality 5 = RTK Float
+#      그 사이(0.018~1.778m)에는 표본이 ★단 하나도 없다★ (약 100배 공백).
+#    관측 std 비율이 드라이버 EPE 기본값 비율과 일치한다 —
+#      실측 B/A=4.9배, C/A=188배  ↔  EPE 0.1/0.02=5배, 4.0/0.02=200배.
+#    Float 은 최장 61.8초 / 47.8초씩 연속으로 지속됐다(총 11회, 168.6초).
+#    지금까지 코드는 이 626개(전체의 4.3%)를 '오차 2cm'로 믿어 왔다.
+#
+#  ★이 등급은 아직 주행 거동을 바꾸지 않는다 — 판별·기록 전용이다★
+#    Float 일 때 GPS 를 얼마나 믿을지(무시/블렌딩/칼만필터)는 실주행 로그가
+#    쌓인 뒤에 그 데이터로 정한다. 지금 정하면 근거 없이 찍는 것이 된다.
+#    아래 DR·블렌딩 분기는 종전 is_rtk_fixed 로직 그대로 두었다.
+GQ_NONE  = 0   # 측위 불가
+GQ_GPS   = 1   # 단독측위         (GGA quality 1)
+GQ_SBAS  = 2   # SBAS/DGPS 보정   (GGA quality 2)
+GQ_FLOAT = 3   # RTK Float        (GGA quality 5)  ★새로 잡히는 등급★
+GQ_FIXED = 4   # RTK Fixed        (GGA quality 4)
+
+# status=2 를 Fixed / Float 로 가르는 수평 std 임계값[m].
+#   실측 경계가 Fixed 최대 0.018m / Float 최소 1.778m 라 0.15m 는 양쪽으로
+#   8~12배 여유가 있다. 오판이 나려면 HDOP 가 7.5 이상 나빠지거나(Fixed 상태
+#   에서 사실상 불가능) 0.038 이하로 좋아져야(물리적으로 불가능) 한다.
+GQ_FIXED_STD_MAX = 0.15
+
+GQ_LABEL = {
+    GQ_NONE:  "NO FIX     (위성 신호 없음)",
+    GQ_GPS:   "GPS 단독   (보정 없음, 오차 ~2-5m)",
+    GQ_SBAS:  "SBAS/DGPS  (위성 보정, 오차 ~1m)",
+    GQ_FLOAT: "RTK FLOAT  (실수해, 오차 ~0.3-2m)",
+    GQ_FIXED: "RTK FIXED  (고정해, 오차 ~2cm)",
+}
+GQ_EMOJI = {
+    GQ_NONE:  "❌", GQ_GPS:   "🔴", GQ_SBAS: "🟠",
+    GQ_FLOAT: "🟡", GQ_FIXED: "🟢",
+}
+
 
 class GpsImuNode(Node):
 
@@ -248,6 +307,12 @@ class GpsImuNode(Node):
         self.gps_nofix_count = 0
         self.gps_dropout_start = None
 
+        # GPS 품질 등급 (GQ_*) — status 와 position_covariance 를 같이 보고 매긴다.
+        #   ★주행 분기에는 아직 쓰지 않는다★ (판별·기록 전용, 파일 상단 GQ_* 절 참고)
+        self.gps_quality      = GQ_NONE
+        self.prev_gps_quality = GQ_NONE
+        self.gps_h_std        = float('nan')   # 수평 std[m] — 로그/디버그용
+
         # DR
         self.dr_active           = False
         self.last_encoder_time   = time.time()
@@ -317,6 +382,10 @@ class GpsImuNode(Node):
 
         self.ego_pub     = self.create_publisher(Float64MultiArray, "/ego_state",     10)
         self.gps_st_pub  = self.create_publisher(String,            "/gps_status",    10)
+        # [GQ] GPS 품질 등급 0~4 를 숫자로도 내보낸다 — 로스백에 남겨 두면
+        #      "Float 이 언제/몇 초씩 떴는가"를 나중에 그대로 집계할 수 있다.
+        #      /gps_status 문자열은 사람이 보는 용도라 파싱이 불편하다.
+        self.gps_q_pub   = self.create_publisher(Int32,             "/gps_quality",   10)
         self.heading_pub = self.create_publisher(Float64MultiArray, "/heading",       10)
         self.terrain_pub = self.create_publisher(Float64MultiArray, "/terrain_state", 10)
 
@@ -537,9 +606,65 @@ class GpsImuNode(Node):
     # =========================================================================
     # GPS 콜백
     # =========================================================================
+    def _classify_gps_quality(self, msg: NavSatFix):
+        """(status, position_covariance) 두 칸을 같이 보고 GQ_* 등급을 매긴다.
+
+        status 만으로는 RTK Fixed 와 Float 가 안 갈라진다(둘 다 2). 정확도는
+        covariance 에 들어 있으므로 ★status=2 인 경우에만★ 그것으로 가른다.
+        status 0/1 은 등급이 이미 1:1 로 대응돼서 covariance 를 볼 필요가 없다.
+        (파일 상단 GQ_* 절에 실측 근거와 임계값 여유가 적혀 있다)
+        """
+        st = msg.status.status
+
+        # position_covariance[0] = 동/북 방향 분산[m²].
+        #   covariance_type 이 UNKNOWN(0) 이면 드라이버가 채우지 않았다는 뜻이라
+        #   믿으면 안 된다. 실측 로스백은 전부 1(APPROXIMATED)이었지만 수신기나
+        #   드라이버를 바꾸면 달라질 수 있어 방어해 둔다.
+        h_std = float('nan')
+        try:
+            if msg.position_covariance_type != NavSatFix.COVARIANCE_TYPE_UNKNOWN:
+                c0 = float(msg.position_covariance[0])
+                if math.isfinite(c0) and c0 > 0.0:
+                    h_std = math.sqrt(c0)
+        except (AttributeError, IndexError, TypeError, ValueError):
+            pass
+        self.gps_h_std = h_std
+
+        if st == GPS_STATUS_NO_FIX:
+            return GQ_NONE
+        if st == GPS_STATUS_FIX:
+            return GQ_GPS
+        if st == GPS_STATUS_SBAS_FIX:
+            return GQ_SBAS
+        if st == GPS_STATUS_GBAS_FIX:
+            # ★covariance 를 못 믿으면 보수적으로 Float 로 본다★
+            #   Fixed 로 오판하면 2m 짜리를 2cm 로 믿게 되어 훨씬 위험하다.
+            if not math.isfinite(h_std):
+                return GQ_FLOAT
+            return GQ_FIXED if h_std < GQ_FIXED_STD_MAX else GQ_FLOAT
+        return GQ_NONE
+
     def cb_fix(self, msg: NavSatFix):
         self.last_gps_time = time.time()
         new_status = msg.status.status
+
+        # ── GPS 품질 등급 (GQ_*) ────────────────────────────────────────────
+        #  ★판별·기록 전용★ — 아래 DR/블렌딩 분기는 종전 로직을 그대로 둔다.
+        #  등급 판별과 주행 거동을 한꺼번에 바꾸면 실차에서 뭔가 이상해졌을 때
+        #  '판별이 틀린 건지 반응이 틀린 건지'를 분리할 수 없게 된다.
+        new_quality = self._classify_gps_quality(msg)
+        if new_quality != self.prev_gps_quality:
+            std_str = (f" (수평std={self.gps_h_std:.3f}m)"
+                       if math.isfinite(self.gps_h_std) else " (std=미상)")
+            self.get_logger().warning(
+                f"  📶 GPS 등급 전환: "
+                f"{GQ_EMOJI.get(self.prev_gps_quality, '?')} "
+                f"{GQ_LABEL.get(self.prev_gps_quality, 'UNKNOWN')}"
+                f"  →  {GQ_EMOJI.get(new_quality, '?')} "
+                f"{GQ_LABEL.get(new_quality, 'UNKNOWN')}{std_str}")
+            self.prev_gps_quality = new_quality
+        self.gps_quality = new_quality
+        self.gps_q_pub.publish(Int32(data=int(new_quality)))
 
         if new_status != self.prev_gps_status:
             emoji_new  = GPS_STATUS_EMOJI.get(new_status, "?")
@@ -954,8 +1079,11 @@ class GpsImuNode(Node):
 
         # gps_status는 헤딩 고정 전에도 계속 발행한다.
         # 기존 코드는 heading lock 전 return 때문에 sensor_monitor에서 GPS 상태가 안 보일 수 있었다.
-        e   = GPS_STATUS_EMOJI.get(self.gps_status, "?")
-        lbl = GPS_STATUS_LABEL.get(self.gps_status, "UNKNOWN")
+        # [GQ] 라벨을 5단계(GQ_*)로 바꾼다 — RTK Float 가 눈에 보이게 된다.
+        #   ★[DR중]/[GPS복구중] 태그는 그대로 유지한다★ driving.py 는 이 문자열을
+        #   부분문자열로만 검사하므로(cb_gps_status) 앞쪽 라벨이 바뀌어도 무영향.
+        e   = GQ_EMOJI.get(self.gps_quality, "?")
+        lbl = GQ_LABEL.get(self.gps_quality, "UNKNOWN")
         dr_str    = " [DR중]"   if self.dr_active       else ""
         blend_str = " [GPS복구중]" if self.gps_blend_active else ""
         self.gps_st_pub.publish(String(data=f"{e} {lbl}{dr_str}{blend_str}"))
@@ -1005,8 +1133,10 @@ class GpsImuNode(Node):
 
     def _print_status(self):
         gps_age = time.time() - self.last_gps_time
-        e   = GPS_STATUS_EMOJI.get(self.gps_status, "?")
-        lbl = GPS_STATUS_LABEL.get(self.gps_status, "UNKNOWN")
+        e   = GQ_EMOJI.get(self.gps_quality, "?")
+        lbl = GQ_LABEL.get(self.gps_quality, "UNKNOWN")
+        if math.isfinite(self.gps_h_std):
+            lbl = f"{lbl} std={self.gps_h_std:.3f}m"
 
         if self.dr_active:
             status_extra = f" ⚠️ DR중 (누적={self.dr_accumulated_dist:.1f}m)"

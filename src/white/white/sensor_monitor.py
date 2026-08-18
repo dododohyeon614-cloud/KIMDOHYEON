@@ -17,7 +17,11 @@ class SensorMonitorNode(Node):
         super().__init__("sensor_monitor_node")
 
         # ── 상태 변수 ──────────────────────────────────
-        self.gps_status_raw   = -1       # NavSatFix status.status
+        self.gps_status_raw   = -1       # NavSatFix status.status (드라이버 원본)
+        # [GQ] gps_imu 가 매긴 품질 등급 0~4. status 만으로는 RTK Fixed/Float 가
+        #      구분되지 않아(둘 다 2) covariance 를 같이 본 값이다. -1 = 아직 미수신.
+        self.gps_quality      = -1
+        self.gps_h_std        = float('nan')   # /fix 에서 직접 계산한 수평 std[m]
         self.gps_last_time    = None
         self.gps_lat          = 0.0
         self.gps_lon          = 0.0
@@ -49,6 +53,7 @@ class SensorMonitorNode(Node):
         self.create_subscription(Int32,             "/encoder",    self.cb_encoder, 10)
         self.create_subscription(Float64MultiArray, "/ego_state",  self.cb_ego,     10)
         self.create_subscription(String,            "/gps_status", self.cb_gps_status, 10)
+        self.create_subscription(Int32,             "/gps_quality", self.cb_gps_quality, 10)
 
         # 1초마다 터미널에 상태 출력
         self.create_timer(1.0, self.print_status)
@@ -61,6 +66,12 @@ class SensorMonitorNode(Node):
         self.gps_status_raw = msg.status.status
         self.gps_lat        = msg.latitude
         self.gps_lon        = msg.longitude
+        # [GQ] 수평 std[m] — gps_imu 가 등급을 가를 때 쓰는 바로 그 값을 같이 보여준다
+        try:
+            c0 = float(msg.position_covariance[0])
+            self.gps_h_std = math.sqrt(c0) if (math.isfinite(c0) and c0 > 0.0) else float('nan')
+        except (AttributeError, IndexError, TypeError, ValueError):
+            self.gps_h_std = float('nan')
         self.gps_last_time  = now
         self.gps_hz_buf.append(now)
         self.gps_hz_buf     = [t for t in self.gps_hz_buf if now - t <= 5.0]
@@ -108,6 +119,9 @@ class SensorMonitorNode(Node):
     def cb_gps_status(self, msg):
         self.gps_status_str = msg.data
 
+    def cb_gps_quality(self, msg):
+        self.gps_quality = int(msg.data)
+
     # ── 유틸 ───────────────────────────────────────────
     def calc_hz(self, buf):
         if len(buf) < 2:
@@ -124,14 +138,33 @@ class SensorMonitorNode(Node):
             return f"⚠️  {age:.1f}초 전"
         return f"✅ {age*1000:.0f}ms 전"
 
-    def gps_status_label(self, status):
+    def gps_quality_label(self, q):
+        """[GQ] gps_imu 가 매긴 5단계 등급 라벨.
+
+        기존 4단계 라벨(NavSatFix.status 그대로)은 ★status=2 를 전부
+        'RTK FIX 오차 ~2cm' 라고 표시하는 문제★ 가 있었다. status 는 정확도가
+        아니라 '보정을 어디서 받았나'를 뜻하는 칸이라, 정수 모호도를 못 푼
+        RTK Float(오차 30cm~2m)도 똑같이 2 로 들어온다. 실측 로스백에서
+        전체 fix 의 4.3% 가 그런 Float 였다.
+        """
         labels = {
-            -1: "⛔ NO FIX   (위성 신호 없음)",
-             0: "🟡 GPS FIX  (일반, 오차 ~2-5m)",
-             1: "🟠 SBAS FIX (보정, 오차 ~1m)",
-             2: "🟢 RTK FIX  (고정밀, 오차 ~2cm)",
+            0: "❌ NO FIX     (위성 신호 없음)",
+            1: "🔴 GPS 단독   (보정 없음, 오차 ~2-5m)",
+            2: "🟠 SBAS/DGPS  (위성 보정, 오차 ~1m)",
+            3: "🟡 RTK FLOAT  (실수해, 오차 ~0.3-2m)",
+            4: "🟢 RTK FIXED  (고정해, 오차 ~2cm)",
         }
-        return labels.get(status, f"❓ UNKNOWN ({status})")
+        return labels.get(q, "❓ 등급 미수신 (gps_imu 노드 확인)")
+
+    def gps_status_label(self, status):
+        """드라이버 원본 status — 참고용으로만 표시한다(정확도 지표가 아님)."""
+        labels = {
+            -1: "NO_FIX(-1)  보정 없음",
+             0: "FIX(0)      보정 없음",
+             1: "SBAS_FIX(1) 위성 기반 보정",
+             2: "GBAS_FIX(2) 지상 기반 보정 ← Fixed/Float 구분 안 됨",
+        }
+        return labels.get(status, f"UNKNOWN ({status})")
 
     # ── 상태 출력 (1초 주기) ────────────────────────────
     def print_status(self):
@@ -146,14 +179,21 @@ class SensorMonitorNode(Node):
         gps_age = (now - self.gps_last_time) if self.gps_last_time else None
         gps_hz  = self.calc_hz(self.gps_hz_buf)
         print(f"  📡 [GPS / RTK]")
-        print(f"     상태    : {self.gps_status_label(self.gps_status_raw)}")
+        print(f"     등급    : {self.gps_quality_label(self.gps_quality)}")
+        if math.isfinite(self.gps_h_std):
+            print(f"     수평std : {self.gps_h_std:.3f} m   "
+                  f"(원본 status: {self.gps_status_label(self.gps_status_raw)})")
+        else:
+            print(f"     원본    : status={self.gps_status_label(self.gps_status_raw)}")
         print(f"     수신    : {self.age_str(self.gps_last_time)}  ({gps_hz:.1f} Hz)")
         if self.gps_last_time:
             print(f"     좌표    : {self.gps_lat:.8f}, {self.gps_lon:.8f}")
         if gps_age and gps_age > 2.0:
             print(f"     ⚠️  GPS 수신 지연 {gps_age:.1f}초 — 위치 정확도 저하!")
-        if self.gps_status_raw < 2 and self.gps_last_time:
-            print(f"     ⚠️  RTK FIX 아님 — 주행 정확도가 낮을 수 있습니다.")
+        # [GQ] 경고 기준을 '등급 4(RTK Fixed) 미만'으로 바꿨다. 기존 기준
+        #      (status < 2)은 RTK Float 를 정상으로 통과시켜서 경고가 안 떴다.
+        if self.gps_last_time and 0 <= self.gps_quality < 4:
+            print(f"     ⚠️  RTK FIXED 아님 — 위치 오차가 큽니다(주행 정확도 저하).")
 
         print()
 
