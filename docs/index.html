@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>논문 데이터 정리 — white 자율주행 패키지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+:root{--paper:#EEF0F2;--card:#FAFBFC;--ink:#151A20;--ink2:#3D4750;--faint:#78838D;
+ --line:#CDD4DA;--hair:#E0E5E9;--acc:#12695C;--acc2:#6B4A9C}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --paper:#12151A;--card:#1A1F25;--ink:#E4E8EC;--ink2:#B2BCC5;--faint:#7F8A94;
+ --line:#2D343B;--hair:#242A31;--acc:#5FBCA9;--acc2:#B294E0}}
+:root[data-theme="dark"]{--paper:#12151A;--card:#1A1F25;--ink:#E4E8EC;--ink2:#B2BCC5;
+ --faint:#7F8A94;--line:#2D343B;--hair:#242A31;--acc:#5FBCA9;--acc2:#B294E0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+ font-family:"IBM Plex Sans KR",system-ui,sans-serif;font-size:15.5px;line-height:1.7}
+.wrap{max-width:46rem;margin:0 auto;padding:0 1.4rem 5rem}
+header{padding:3.4rem 0 1.4rem;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.18em;
+ text-transform:uppercase;color:var(--faint);margin-bottom:.9rem}
+h1{font-family:"Gothic A1",sans-serif;font-weight:800;font-size:clamp(1.8rem,5vw,2.5rem);
+ margin:0 0 .6rem;letter-spacing:-.02em}
+.lede{color:var(--ink2);margin:0;max-width:34rem}
+h2{font-family:"Gothic A1",sans-serif;font-weight:800;font-size:1.1rem;margin:2.8rem 0 .8rem;
+ padding-bottom:.4rem;border-bottom:2px solid var(--ink)}
+a.doc{display:block;background:var(--card);border:1px solid var(--hair);padding:1rem 1.15rem;
+ margin-bottom:.6rem;text-decoration:none;color:inherit;border-left:3px solid var(--acc)}
+a.doc:hover{border-color:var(--acc);border-left-color:var(--acc)}
+a.doc.v{border-left-color:var(--acc2)}
+a.doc b{display:block;font-family:"Gothic A1",sans-serif;font-weight:700;font-size:1.02rem;
+ margin-bottom:.15rem}
+a.doc span{display:block;color:var(--ink2);font-size:.88rem}
+a.doc time{display:block;font-family:"IBM Plex Mono",monospace;font-size:.7rem;
+ color:var(--faint);margin-top:.4rem;letter-spacing:.03em}
+footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--line);
+ font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--faint);line-height:1.8}
+footer a{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">1/5 스케일 자율주행 · ROS 2 Humble · white 패키지</div>
+  <h1>논문 데이터 정리</h1>
+  <p class="lede">GPS·IMU 융합 기반 경로추종 주행 코드를 읽고 정리한 자료 모음.
+  모든 문서는 GitHub 저장소 <span style="font-family:IBM Plex Mono,monospace">white_ws</span>
+  커밋 <span style="font-family:IBM Plex Mono,monospace">bae094d</span> 기준이다.</p>
+</header>
+
+<h2>코드를 직접 읽는 도구</h2>
+<a class="doc" href="2026-08-27_white-코드리더_모든이름-클릭가능.html">
+  <b>white 코드 리더</b>
+  <span>패키지 8개 파일 5,173줄 전체. 코드에 나오는 이름 1,327개를 모두 클릭하면 설명이 열린다 —
+  직접 쓴 해설 345개, 자동 분석 881개, 파이썬·ROS 기본 101개. 모순 지점 10건이 코드 줄에 ◆로 표시된다.</span>
+  <time>2026-08-27 · 832 KB</time>
+</a>
+<a class="doc v" href="2026-08-27_white-변수사전-모순리포트.html">
+  <b>변수 사전과 모순 리포트</b>
+  <span>이름 붙은 값 192개를 역할별로 묶어 “무엇인가 / 무엇을 오차로 재는가 / 어떻게 쓰이나”로 정리.
+  뒤쪽에 코드끼리 어긋나는 지점 10건을 근거와 함께 실었다.</span>
+  <time>2026-08-27 · 198 KB</time>
+</a>
+
+<h2>주행 원리 해설</h2>
+<a class="doc" href="2026-08-27_GPS-IMU-융합구조와-조향각계산.html">
+  <b>헤딩은 누가 만드는가 — GPS·IMU 융합 구조와 조향각 계산</b>
+  <span>두 센서가 붙는 자리 열 군데를 전수조사하고, 96:4 헤딩 보정의 실제 의미를 밝힌 뒤,
+  그 헤딩이 CTE·lead·Pure Pursuit를 거쳐 조향각이 되기까지를 코드로 따라간다.
+  카메라 융합을 붙일 자리도 함께 정리.</span>
+  <time>2026-08-27 · 최신</time>
+</a>
+<a class="doc v" href="2026-08-27_white-자율주행-해설서.html">
+  <b>white 자율주행 해설서</b>
+  <span>출발 조건부터 정지까지 전체 흐름을 고등학교 1학년 눈높이로 풀어 쓴 통합 문서.</span>
+  <time>2026-08-27</time>
+</a>
+<a class="doc" href="2026-08-26_조향각-산출-폐루프.html">
+  <b>조향각 산출 폐루프</b>
+  <span>현재 위치 → 목표 선정 → 오차 → 계산 → 명령 → 피드백으로 이어지는 닫힌 고리 블록선도.</span>
+  <time>2026-08-26</time>
+</a>
+<a class="doc v" href="2026-08-26_white-패키지-아키텍처.html">
+  <b>패키지 아키텍처</b>
+  <span>노드와 토픽 구성, 각 파일이 맡은 역할.</span>
+  <time>2026-08-26</time>
+</a>
+
+<h2>검증 기록</h2>
+<a class="doc" href="2026-08-27_white-코드감사-정정리포트.html">
+  <b>코드 감사 · 정정 리포트</b>
+  <span>보고서 내용을 GitHub 최신 코드와 대조한 결과. 앞선 분석 중 잘못된 판정을 철회한 기록을 포함한다.</span>
+  <time>2026-08-27</time>
+</a>
+<a class="doc v" href="2026-08-26_GPS-IMU-융합-초판_구버전코드기준.html">
+  <b>GPS·IMU 융합 초판 (구버전 코드 기준)</b>
+  <span>로컬 v5.7.1 사본을 기준으로 만든 초기 정리본. 최신 내용은 위의 “헤딩은 누가 만드는가”를 볼 것.</span>
+  <time>2026-08-26 · 참고용</time>
+</a>
+
+<footer>
+기준 소스 — <a href="https://github.com/dododohyeon614-cloud/white_ws">dododohyeon614-cloud/white_ws</a> @ bae094d<br>
+driving.py 1,944행 · gps_imu.py 1,142행 · route_remodeler.py 770행 · motor.py 529행 ·
+iahrs.py 236행 · mapping.py 214행 · sensor_monitor.py 209행 · prompt.py 129행
+</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>white 패키지 아키텍처</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:  #EBEFF2;
+    --surface: #FFFFFF;
+    --sunken:  #E2E8EC;
+    --ink:     #16212B;
+    --muted:   #556775;
+    --faint:   #7C8D9A;
+    --line:    #C7D3DB;
+    --hair:    #DCE4E9;
+    --gps:     #0E6C8B;
+    --gps-bg:  #DCEDF3;
+    --imu:     #8C3866;
+    --imu-bg:  #F3E0EA;
+    --warn:    #925D00;
+    --warn-bg: #F6E9D2;
+    --ok:      #1F6B4A;
+    --ok-bg:   #DDEBE3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:  #0F151B; --surface: #18212A; --sunken: #131C24;
+      --ink: #DFE7EC; --muted: #96A7B4; --faint: #748896;
+      --line: #2E3D49; --hair: #253240;
+      --gps: #4CB2D0; --gps-bg: #10333F;
+      --imu: #DE8AB3; --imu-bg: #3A1F2E;
+      --warn: #E0A63A; --warn-bg: #352913;
+      --ok: #56B98B; --ok-bg: #12301F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:  #0F151B; --surface: #18212A; --sunken: #131C24;
+    --ink: #DFE7EC; --muted: #96A7B4; --faint: #748896;
+    --line: #2E3D49; --hair: #253240;
+    --gps: #4CB2D0; --gps-bg: #10333F;
+    --imu: #DE8AB3; --imu-bg: #3A1F2E;
+    --warn: #E0A63A; --warn-bg: #352913;
+    --ok: #56B98B; --ok-bg: #12301F;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "IBM Plex Sans KR", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.72; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 48rem; margin: 0 auto; padding: 4rem 1.4rem 6rem;
+          display: flex; flex-direction: column; gap: 3.4rem; }
+
+  .mast { display: flex; flex-direction: column; gap: 0.9rem; }
+  .rule { height: 3px; width: 3.5rem; background: var(--ink); }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
+             letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
+  h1 { font-family: "Gothic A1", sans-serif; font-weight: 800;
+       font-size: clamp(2rem, 6vw, 2.8rem); line-height: 1.14;
+       letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+  .standfirst { color: var(--muted); margin: 0; font-size: 1.04rem; max-width: 36rem; }
+
+  section { display: flex; flex-direction: column; gap: 1.05rem; }
+  h2 { font-family: "Gothic A1", sans-serif; font-weight: 800; font-size: 1.42rem;
+       letter-spacing: -0.01em; margin: 0; padding-bottom: 0.55rem;
+       border-bottom: 1px solid var(--line); text-wrap: balance; }
+  h3 { font-family: "Gothic A1", sans-serif; font-weight: 700; font-size: 1.04rem;
+       margin: 0.7rem 0 0; }
+  p { margin: 0; }
+  strong { font-weight: 600; }
+
+  code, .mono { font-family: "IBM Plex Mono", monospace; font-size: 0.86em; }
+  code { background: var(--sunken); padding: 0.08em 0.36em; color: var(--muted); }
+
+  .claim { background: var(--surface); border: 1px solid var(--line);
+           border-left: 4px solid var(--ink); padding: 1.35rem 1.55rem;
+           display: flex; flex-direction: column; gap: 0.65rem; }
+  .claim-label { font-family: "IBM Plex Mono", monospace; font-size: 0.67rem;
+                 letter-spacing: 0.15em; text-transform: uppercase; color: var(--faint); }
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 0.8rem; }
+  .fig { overflow-x: auto; background: var(--surface); border: 1px solid var(--line);
+         padding: 1.3rem 0.9rem; }
+  .fig svg { display: block; min-width: 640px; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption { font-size: 0.86rem; color: var(--muted); line-height: 1.62; }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  .bx      { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+  .bx-gps  { fill: var(--gps-bg);  stroke: var(--gps);  stroke-width: 1.6; }
+  .bx-imu  { fill: var(--imu-bg);  stroke: var(--imu);  stroke-width: 1.6; }
+  .bx-ok   { fill: var(--ok-bg);   stroke: var(--ok);   stroke-width: 1.6; }
+  .bx-dim  { fill: var(--sunken);  stroke: var(--line); stroke-width: 1.3; stroke-dasharray: 5 3; }
+  .t     { font-family: "IBM Plex Sans KR", sans-serif; font-size: 13px; font-weight: 500; fill: var(--ink); }
+  .t-sm  { font-family: "IBM Plex Sans KR", sans-serif; font-size: 11px; fill: var(--muted); }
+  .t-m   { font-family: "IBM Plex Mono", monospace; font-size: 10px; fill: var(--faint); }
+  .ln       { stroke: var(--ink);   stroke-width: 1.7; fill: none; }
+  .ln-thin  { stroke: var(--muted); stroke-width: 1.3; fill: none; }
+  .ln-dash  { stroke: var(--faint); stroke-width: 1.3; fill: none; stroke-dasharray: 5 3; }
+  .ln-fb    { stroke: var(--ok);    stroke-width: 1.8; fill: none; stroke-dasharray: 6 4; }
+
+  .tbl { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem;
+          background: var(--surface); border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 0.55rem 0.75rem;
+           border-bottom: 1px solid var(--hair); vertical-align: top; }
+  th { font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; letter-spacing: 0.1em;
+       text-transform: uppercase; color: var(--faint); font-weight: 500;
+       background: var(--sunken); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.n { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .eq { font-family: "IBM Plex Mono", monospace; font-size: 0.83rem;
+        background: var(--surface); border: 1px solid var(--line);
+        padding: 0.85rem 1rem; overflow-x: auto; white-space: pre; line-height: 1.6; }
+
+  .links { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap: 1rem; }
+  .lk { display: flex; flex-direction: column; gap: 0.45rem;
+        background: var(--surface); border: 1px solid var(--line);
+        padding: 1.1rem 1.2rem; text-decoration: none; color: inherit; }
+  .lk:hover { border-color: var(--ink); }
+  .lk:focus-visible { outline: 2px solid var(--gps); outline-offset: 2px; }
+  .lk-tag { font-family: "IBM Plex Mono", monospace; font-size: 0.65rem;
+            letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+  .lk h4 { font-family: "Gothic A1", sans-serif; font-weight: 700; font-size: 1rem; margin: 0; }
+  .lk p { font-size: 0.85rem; color: var(--muted); line-height: 1.55; }
+  .lk span.go { font-family: "IBM Plex Mono", monospace; font-size: 0.76rem; color: var(--gps); }
+
+  .flag { border-left: 3px solid var(--warn); background: var(--warn-bg);
+          padding: 0.8rem 1rem; font-size: 0.89rem; }
+  .flag b { color: var(--warn); }
+
+  ul.t { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; }
+  .note { font-size: 0.85rem; color: var(--faint);
+          border-left: 2px solid var(--line); padding-left: 0.9rem; }
+
+  footer { border-top: 1px solid var(--line); padding-top: 1.1rem;
+           font-family: "IBM Plex Mono", monospace; font-size: 0.76rem; color: var(--faint); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="rule"></div>
+    <div class="eyebrow">ROS 2 Humble · ament_python · 1/5 스케일 자율주행차</div>
+    <h1>white 패키지 아키텍처</h1>
+    <p class="standfirst">
+      노드 8개, 토픽 20여 개, 서로 다른 주기로 도는 루프 3개.
+      전체가 어떻게 맞물리는지와, 각 부분을 다룬 상세 문서로 가는 길을 한 장에 모았다.
+    </p>
+  </header>
+
+  <div class="claim">
+    <div class="claim-label">시스템 한 줄</div>
+    <p>
+      <strong>GPS가 위치를, IMU가 방향을, 엔코더가 속도를 대고 — 이 셋을 융합한 자세로
+      저장된 경로를 따라가며 조향과 속도를 20 Hz로 다시 계산하는 폐루프.</strong>
+      센서와 제어가 각자 다른 속도로 돌기 때문에, 느린 쪽을 기다리지 않고
+      빠른 쪽이 그 사이를 메우는 구조가 전체를 관통한다.
+    </p>
+  </div>
+
+  <!-- ============ 1. 주행 데이터 흐름 ============ -->
+  <section>
+    <h2>1 · 주행 데이터 흐름</h2>
+    <p>실제로 차가 굴러가는 동안 도는 경로입니다. 이 그림의 화살표가 곧 ROS 토픽입니다.</p>
+
+    <figure>
+      <div class="fig">
+        <svg viewBox="0 0 1000 480" role="img"
+             aria-label="GPS와 IMU가 gps_imu 노드로 들어가 ego_state를 만들고, driving 노드가 이를 받아 cmd_vel_raw를 내보내면 motor 노드가 아두이노로 전달하며, 엔코더가 되먹임되는 데이터 흐름도">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"></path>
+            </marker>
+          </defs>
+
+          <text class="t-m" x="115" y="36" text-anchor="middle">센서 · 드라이버</text>
+          <text class="t-m" x="380" y="36" text-anchor="middle">융합</text>
+          <text class="t-m" x="660" y="36" text-anchor="middle">판단 · 제어</text>
+          <text class="t-m" x="910" y="36" text-anchor="middle">구동</text>
+
+          <!-- sensors -->
+          <rect class="bx-gps" x="30" y="60" width="170" height="52" rx="2"></rect>
+          <text class="t" x="115" y="82" text-anchor="middle">GPS 수신기</text>
+          <text class="t-m" x="115" y="99" text-anchor="middle">nmea_serial_driver · 5 Hz</text>
+
+          <rect class="bx-imu" x="30" y="132" width="170" height="52" rx="2"></rect>
+          <text class="t" x="115" y="154" text-anchor="middle">iAHRS (IMU)</text>
+          <text class="t-m" x="115" y="171" text-anchor="middle">iahrs.py · 20 Hz</text>
+
+          <rect class="bx-dim" x="30" y="380" width="170" height="52" rx="2"></rect>
+          <text class="t" x="115" y="402" text-anchor="middle" fill="var(--muted)">카메라 차선</text>
+          <text class="t-m" x="115" y="419" text-anchor="middle">lane_bridge · 섀도 모드</text>
+
+          <!-- fusion -->
+          <rect class="bx" x="280" y="60" width="200" height="196" rx="2"></rect>
+          <text class="t" x="380" y="92" text-anchor="middle" font-weight="700">gps_imu.py</text>
+          <text class="t-sm" x="380" y="116" text-anchor="middle">위치 = GPS (뒷차축 투영)</text>
+          <text class="t-sm" x="380" y="136" text-anchor="middle">헤딩 = IMU 적분</text>
+          <text class="t-sm" x="380" y="156" text-anchor="middle">+ GPS 방향으로 4% 보정</text>
+          <text class="t-m" x="380" y="182" text-anchor="middle">RTK · DR · 블렌딩 3모드</text>
+          <text class="t-m" x="380" y="200" text-anchor="middle">20 Hz 발행</text>
+
+          <!-- control -->
+          <rect class="bx" x="560" y="60" width="200" height="196" rx="2"></rect>
+          <text class="t" x="660" y="92" text-anchor="middle" font-weight="700">driving.py</text>
+          <text class="t-sm" x="660" y="116" text-anchor="middle">상태예측 0.45 s</text>
+          <text class="t-sm" x="660" y="136" text-anchor="middle">CTE → PID (± 9°)</text>
+          <text class="t-sm" x="660" y="156" text-anchor="middle">각도 → Pure Pursuit</text>
+          <text class="t-m" x="660" y="182" text-anchor="middle">곡률 스캔 → 속도 계획</text>
+          <text class="t-m" x="660" y="200" text-anchor="middle">20 Hz 루프</text>
+
+          <!-- actuator -->
+          <rect class="bx-ok" x="840" y="90" width="140" height="140" rx="2"></rect>
+          <text class="t" x="910" y="122" text-anchor="middle" font-weight="700">motor.py</text>
+          <text class="t-sm" x="910" y="146" text-anchor="middle">↕ 아두이노</text>
+          <text class="t-m" x="910" y="168" text-anchor="middle">시리얼 115200</text>
+          <text class="t-m" x="910" y="186" text-anchor="middle">자체 PID 100 Hz</text>
+          <text class="t-m" x="910" y="208" text-anchor="middle">서보 + 모터</text>
+
+          <!-- arrows -->
+          <path class="ln" d="M200,86 L280,86" marker-end="url(#ar)"></path>
+          <text class="t-m" x="240" y="78" text-anchor="middle">/fix</text>
+
+          <path class="ln" d="M200,158 L280,158" marker-end="url(#ar)"></path>
+          <text class="t-m" x="240" y="150" text-anchor="middle">/imu/data</text>
+
+          <path class="ln" d="M480,158 L560,158" marker-end="url(#ar)"></path>
+          <text class="t" x="520" y="140" text-anchor="middle" font-size="12" font-weight="600">/ego_state</text>
+          <text class="t-m" x="520" y="176" text-anchor="middle">위치·ψ·v</text>
+
+          <path class="ln" d="M760,122 L840,122" marker-end="url(#ar)"></path>
+          <text class="t-m" x="800" y="114" text-anchor="middle">/cmd_vel_raw</text>
+
+          <!-- imu also to driving (예측용) -->
+          <path class="ln-thin" d="M200,184 L240,184 L240,300 L640,300 L640,256" marker-end="url(#ar)"></path>
+          <text class="t-m" x="430" y="293" text-anchor="middle">/imu/data — 예측용 요레이트</text>
+
+          <!-- camera dashed -->
+          <path class="ln-dash" d="M200,406 L700,406 L700,256" marker-end="url(#ar)"></path>
+          <text class="t-m" x="440" y="399" text-anchor="middle">/lane_metrics (기본 비활성)</text>
+
+          <!-- encoder feedback -->
+          <path class="ln-fb" d="M910,230 L910,340 L380,340 L380,256" marker-end="url(#ar)"></path>
+          <text class="t-m" x="640" y="333" text-anchor="middle" fill="var(--ok)">/encoder — 속도 되먹임</text>
+
+          <!-- encoder also to driving -->
+          <path class="ln-fb" d="M780,340 L780,256" marker-end="url(#ar)"></path>
+
+          <!-- gps_status -->
+          <path class="ln-thin" d="M480,220 L520,220 L520,236 L560,236" marker-end="url(#ar)"></path>
+          <text class="t-m" x="520" y="256" text-anchor="middle">/gps_status</text>
+        </svg>
+      </div>
+      <figcaption>
+        굵은 실선이 주 경로, <b>초록 점선</b>이 유일한 실제 되먹임(엔코더)입니다.
+        <b>조향각을 재는 센서는 없습니다</b> — 조향 루프는 차가 실제로 돈 결과(IMU 요레이트·GPS 위치)를 통해서만 닫힙니다.
+        회색 점선(카메라)은 구현돼 있으나 <code>cam_enable=False</code>가 기본이라 로깅만 합니다.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ 2. 파일별 역할 ============ -->
+  <section>
+    <h2>2 · 파일별 역할</h2>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>파일</th><th>줄 수</th><th>역할</th></tr></thead>
+        <tbody>
+          <tr><td><code>driving.py</code></td><td class="n">1632</td>
+              <td><b>제어의 심장.</b> 경로 추종, 조향·속도 계산, 도착 판정. 이 패키지에서 가장 큰 파일</td></tr>
+          <tr><td><code>gps_imu.py</code></td><td class="n">1213</td>
+              <td><b>센서 융합.</b> 위치·헤딩 생성, 드리프트 보정, DR·블렌딩</td></tr>
+          <tr><td><code>route_remodeler.py</code></td><td class="n">752</td>
+              <td><b>경로 다듬기(오프라인).</b> 매핑한 지그재그 CSV를 직선+베지어 코너로 재구성</td></tr>
+          <tr><td><code>motor.py</code></td><td class="n">433</td>
+              <td><b>하드웨어 브리지.</b> m/s ↔ 엔코더 틱 변환, 아두이노 시리얼</td></tr>
+          <tr><td><code>camera_fusion.py</code></td><td class="n">319</td>
+              <td>차선 CTE 융합·신호등 감속 (기본 섀도 모드)</td></tr>
+          <tr><td><code>sensor_monitor.py</code></td><td class="n">247</td>
+              <td>모든 토픽 구독해 진단만. 제어에 관여하지 않음</td></tr>
+          <tr><td><code>iahrs.py</code></td><td class="n">231</td>
+              <td>IMU 드라이버. 쿼터니언 → <code>/imu/data</code></td></tr>
+          <tr><td><code>lane_camera_bridge.py</code></td><td class="n">213</td>
+              <td>카메라 인식 결과 → 차선 계측값 변환</td></tr>
+          <tr><td><code>mapping.py</code></td><td class="n">202</td>
+              <td>수동 주행하며 경로를 CSV로 저장</td></tr>
+          <tr><td><code>prompt.py</code></td><td class="n">117</td>
+              <td>터미널 메뉴 (매핑 / 주행 / 목록 / 종료)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">
+      <code>route_remodeler.py</code>는 ROS 노드가 아닙니다. <code>mapping.py</code>가 호출하거나
+      CLI로 직접 실행하는 <b>경로 후처리 도구</b>입니다.
+    </p>
+  </section>
+
+  <!-- ============ 3. 세 개의 주기 ============ -->
+  <section>
+    <h2>3 · 서로 다른 세 개의 주기</h2>
+    <p>
+      이 시스템의 성격을 결정하는 구조입니다. <strong>느린 층이 갱신되기를 기다리지 않고
+      빠른 층이 그 사이를 메웁니다.</strong>
+    </p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>층</th><th>주기</th><th>하는 일</th><th>사이를 메우는 것</th></tr></thead>
+        <tbody>
+          <tr><td>GPS</td><td class="n">5 Hz · 200 ms</td><td>절대 위치 갱신</td>
+              <td>IMU 헤딩 + 0.45초 상태예측</td></tr>
+          <tr><td>융합 · 제어</td><td class="n">20 Hz · 50 ms</td><td>자세 발행, 조향·속도 계산</td>
+              <td>—</td></tr>
+          <tr><td>액추에이터</td><td class="n">100 Hz · 10 ms</td><td>아두이노 자체 PID로 바퀴 속도 유지</td>
+              <td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flag">
+      <b>중요한 사실 하나.</b> 정상 RTK 주행에서 위치는 GPS가 올 때만 갱신되므로,
+      <code>/ego_state</code>에는 <b>같은 좌표가 4번 반복</b>됩니다(영차 홀드).
+      GPS 사이를 보간하지 않습니다. 엔코더로 위치를 실제 적분하는 것은 <b>DR 모드에서만</b>입니다.
+    </div>
+  </section>
+
+  <!-- ============ 4. 융합 요약 ============ -->
+  <section>
+    <h2>4 · 융합 — GPS와 IMU가 서로를 필요로 한다</h2>
+    <p>
+      역할이 나뉜 것처럼 보이지만, 코드는 <strong>서로의 출력을 입력으로 되받는 고리</strong>입니다.
+    </p>
+
+    <h3>고리 ① IMU → 위치</h3>
+    <div class="eq">rear_x = curr_x − 0.865 · cos(ψ)
+rear_y = curr_y − 0.865 · sin(ψ)</div>
+    <p>
+      GPS 안테나는 뒷차축보다 <span class="mono">0.865 m</span> 앞에 있습니다.
+      <strong>헤딩을 모르면 “뒤”가 어느 쪽인지 알 수 없어 투영이 불가능합니다.</strong>
+      뒷차축으로 옮기는 이유는 <b>뒷바퀴는 옆으로 미끄러지지 않아</b> 이후 계산이 정확해지기 때문입니다.
+    </p>
+
+    <h3>고리 ② GPS → 헤딩</h3>
+    <div class="eq">gps_dir = atan2(Δy, Δx)          ← 두 GPS 점의 이동 방향
+exp_dir = atan2(v·sinψ + ω·d·cosψ,
+                v·cosψ − ω·d·sinψ)   ← 헤딩이 맞다면 나와야 할 방향
+
+drift   = exp_dir − gps_dir           ← 오차값, 목표 0
+yaw_offset −= drift × 0.04            ← 4%만 당김</div>
+    <p>
+      <code>exp_dir</code>에 <span class="mono">ω·d</span> 항이 붙는 이유는
+      <strong>회전 중 안테나가 뒷차축보다 바깥으로 휘어 지나가기</strong> 때문입니다.
+      원운동의 <span class="mono">v = ωr</span> 그대로이며, 이걸 빼지 않으면
+      멀쩡한 헤딩을 “틀렸다”고 오판합니다(실측 코너 오판 ±7~10°).
+    </p>
+
+    <h3>왜 4 %인가 — 0.96 : 0.04</h3>
+    <div class="eq">0.96ⁿ = 0.5  →  n ≈ 17회
+17회 ÷ 5 Hz ≈ 3.4초   ← 오차가 절반으로 줄어드는 시간</div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>시간 규모</th><th>대상</th><th>4 % 필터의 반응</th></tr></thead>
+        <tbody>
+          <tr><td class="n">0.2초</td><td>GPS 잡음 한 번</td><td>거의 무시 ✓</td></tr>
+          <tr><td class="n">1~2초</td><td>코너 도는 시간</td><td>거의 무시 ✓ (헤딩 안 망가짐)</td></tr>
+          <tr><td class="n">수십 초~분</td><td>자이로 드리프트</td><td>충분히 따라잡음 ✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>코너보다는 느리고, 드리프트보다는 빠른 자리</strong>입니다. 그것이 4 %의 근거입니다.</p>
+
+    <h3>DR — GPS가 1.5초 끊기면</h3>
+    <div class="eq">ψ += ω · dt                  ← 자이로로 방향 이어감
+x += v · cos(ψ) · dt         ← 속도를 방향으로 쪼개 더함
+y += v · sin(ψ) · dt</div>
+    <p>
+      뒷차축은 기구학상 <b>횡속도가 0</b>이라 이 두 성분만으로 완전히 표현됩니다.
+      안테나 좌표로 DR을 하면 <span class="mono">ω·d</span> 옆 성분을 놓쳐 회전마다 어긋납니다.
+      GPS 복구 시에는 순간이동 대신 <b>3초 코사인 곡선</b>으로 옮겨 조향이 덜컥거리지 않게 합니다.
+    </p>
+  </section>
+
+  <!-- ============ 5. 제어 요약 ============ -->
+  <section>
+    <h2>5 · 제어 — 두 갈래가 합쳐진다</h2>
+    <p>
+      조향은 성격이 다른 두 제어기를 <strong>단순히 더해서</strong> 만듭니다.
+    </p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th></th><th>Pure Pursuit</th><th>PID</th></tr></thead>
+        <tbody>
+          <tr><td>오차값</td><td>각도 α (앞 목표점)</td><td>거리 CTE (옆으로 벗어남)</td></tr>
+          <tr><td>성격</td><td>기하 — 길 모양대로 그림</td><td>피드백 — 어긋난 것을 지움</td></tr>
+          <tr><td>발산</td><td>불가능 (삼각형 계산)</td><td>가능 (와인드업·과게인)</td></tr>
+          <tr><td>상한</td><td class="n">32.4°</td><td class="n">± 9°</td></tr>
+          <tr><td>실측 출력</td><td class="n">약 15°</td><td class="n">약 1°</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="eq">δ_pp  = atan(2L·sin α / LFD)              L = 0.73 m
+δ_pid = clamp(Kp·e + Ki·∫e + Kd·ė , ±9°)
+δ     = δ_pp + δ_pid                      → 실측 기여 94 : 6</div>
+    <p>
+      <strong>±9°는 “망가질 수 있는 쪽”에 친 울타리입니다.</strong>
+      회전반경으로 환산하면 4.61 m — 차량 최소 회전반경(2.01 m)의 2.3배로,
+      <b>급회전 권한은 경로 기하만 갖는다</b>는 뜻입니다.
+    </p>
+
+    <h3>진동을 막는 장치들</h3>
+    <p>
+      명령→반응 지연이 <b>0.55초</b>고, 차의 진동 주파수(0.156 Hz)가 제어기 설계 진동수와
+      정확히 일치했습니다. 지연이 그 주파수의 감쇠를 지워버린 것입니다.
+    </p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>장치</th><th>막는 것</th><th>값</th></tr></thead>
+        <tbody>
+          <tr><td>상태예측</td><td>지연 → 왕복 진동</td><td class="n">τ = 0.45 s</td></tr>
+          <tr><td>적분 안정화 5중</td><td>와인드업</td><td class="n">×0.35 / ×0.80 / ±6.0</td></tr>
+          <tr><td>CTE 저역통과</td><td>GPS 계단 · D항 펄스</td><td class="n">α = 0.80</td></tr>
+          <tr><td>D항 저역통과</td><td>미분의 20배 잡음 증폭</td><td class="n">α = 0.16, ×0.20</td></tr>
+          <tr><td>조향 슬루</td><td>서보가 못 따라올 명령</td><td class="n">2.5~3.5 °/틱</td></tr>
+          <tr><td>게인·트림 보정</td><td>물리적 우측 쏠림·부족조향</td><td class="n">(δ+1.5)÷0.85</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>효과 (실측)</strong> — 상태예측 OFF: 최대 CTE 0.64 m, 왕복 21.8회/분 →
+       ON: <b>0.16 m, 0회</b> (평균속도 −11 %)</p>
+  </section>
+
+  <!-- ============ 6. 지원 노드 ============ -->
+  <section>
+    <h2>6 · 주행 외 노드</h2>
+    <figure>
+      <div class="fig">
+        <svg viewBox="0 0 900 250" role="img"
+             aria-label="prompt 노드가 매핑과 주행 명령을 내리고, mapping 노드가 경로를 CSV로 저장하면 route_remodeler가 이를 다듬어 driving이 읽는 흐름도">
+          <rect class="bx" x="30" y="60" width="170" height="60" rx="2"></rect>
+          <text class="t" x="115" y="84" text-anchor="middle">prompt.py</text>
+          <text class="t-m" x="115" y="102" text-anchor="middle">터미널 메뉴</text>
+
+          <rect class="bx" x="280" y="20" width="170" height="60" rx="2"></rect>
+          <text class="t" x="365" y="44" text-anchor="middle">mapping.py</text>
+          <text class="t-m" x="365" y="62" text-anchor="middle">경로 기록</text>
+
+          <rect class="bx" x="280" y="140" width="170" height="60" rx="2"></rect>
+          <text class="t" x="365" y="164" text-anchor="middle">driving.py</text>
+          <text class="t-m" x="365" y="182" text-anchor="middle">자율주행</text>
+
+          <rect class="bx-dim" x="530" y="20" width="180" height="60" rx="2"></rect>
+          <text class="t" x="620" y="44" text-anchor="middle">route_remodeler</text>
+          <text class="t-m" x="620" y="62" text-anchor="middle">오프라인 후처리</text>
+
+          <rect class="bx" x="530" y="140" width="180" height="60" rx="2"></rect>
+          <text class="t" x="620" y="164" text-anchor="middle">gps_data/*.csv</text>
+          <text class="t-m" x="620" y="182" text-anchor="middle">웨이포인트 480여 개</text>
+
+          <rect class="bx-dim" x="760" y="80" width="120" height="60" rx="2"></rect>
+          <text class="t" x="820" y="104" text-anchor="middle" fill="var(--muted)">sensor_monitor</text>
+          <text class="t-m" x="820" y="122" text-anchor="middle">진단 전용</text>
+
+          <path class="ln" d="M200,80 L240,80 L240,50 L280,50" marker-end="url(#ar2)"></path>
+          <text class="t-m" x="238" y="26" text-anchor="middle">/mapping_cmd</text>
+          <path class="ln" d="M200,100 L240,100 L240,170 L280,170" marker-end="url(#ar2)"></path>
+          <text class="t-m" x="238" y="216" text-anchor="middle">/drive_cmd</text>
+
+          <path class="ln" d="M450,50 L530,50" marker-end="url(#ar2)"></path>
+          <text class="t-m" x="490" y="42" text-anchor="middle">CSV</text>
+          <path class="ln" d="M620,80 L620,140" marker-end="url(#ar2)"></path>
+          <text class="t-m" x="660" y="114" text-anchor="middle">다듬은 CSV</text>
+          <path class="ln" d="M530,170 L450,170" marker-end="url(#ar2)"></path>
+          <text class="t-m" x="490" y="190" text-anchor="middle">읽기</text>
+
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"></path>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+      <figcaption>
+        경로는 <b>기록 → 다듬기 → 주행</b> 순으로 흐릅니다.
+        <code>route_remodeler</code>는 GPS 지그재그를 직선 구간과 베지어 코너로 재구성해
+        주행 시 조향이 떨리지 않게 만듭니다.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ 7. 상세 문서 ============ -->
+  <section>
+    <h2>7 · 상세 문서</h2>
+    <p>각 부분을 더 깊게 다룬 문서입니다.</p>
+    <div class="links">
+      <a class="lk" href="https://claude.ai/code/artifact/1ca585a3-5bc9-409f-9601-835223f60dda">
+        <span class="lk-tag">센서 융합</span>
+        <h4>GPS·IMU 상호 결합 구조</h4>
+        <p>헤딩 고정 절차, 드리프트 보정 4단계, RTK·DR·블렌딩 세 모드</p>
+        <span class="go">열기 →</span>
+      </a>
+      <a class="lk" href="https://claude.ai/code/artifact/3ac4b9c9-ffca-4407-a557-444702a411d2">
+        <span class="lk-tag">제어 · 인터랙티브</span>
+        <h4>조향각 산출 폐루프</h4>
+        <p>블록 16개를 클릭하면 각 단계의 오차값·이유·보정 방식이 열립니다</p>
+        <span class="go">열기 →</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ============ 8. 차량 제원 ============ -->
+  <section>
+    <h2>8 · 차량 제원</h2>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>항목</th><th>값</th><th>출처</th></tr></thead>
+        <tbody>
+          <tr><td>휠베이스 L</td><td class="n">0.73 m</td><td><code>driving.py:310</code></td></tr>
+          <tr><td>조향 한계</td><td class="n">± 20° (아두이노 21°)</td><td><code>driving.py:311</code></td></tr>
+          <tr><td>최소 회전반경</td><td class="n">2.01 m</td><td>L / tan 20°</td></tr>
+          <tr><td>바퀴 둘레</td><td class="n">0.8482 m (⌀ ≈ 27 cm)</td><td><code>motor.py:34</code></td></tr>
+          <tr><td>엔코더</td><td class="n">300 tick / rev</td><td><code>motor.py:35</code></td></tr>
+          <tr><td>속도 분해능</td><td class="n">1 tick ≈ 0.283 m/s</td><td>계산값</td></tr>
+          <tr><td>안테나 → 뒷차축</td><td class="n">0.865 m</td><td><code>gps_imu.py:189</code></td></tr>
+          <tr><td>코드 최고속도</td><td class="n">2.8 m/s</td><td><code>driving.py:314</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">
+      패키지 안에 “1/5”이라는 문자열은 없습니다. 휠베이스 0.73 m · 바퀴 ⌀27 cm ·
+      회전반경 2 m 라는 제원이 <b>1/5 스케일 규격에 부합</b>한다는 추론입니다.
+    </p>
+  </section>
+
+  <!-- ============ 9. 정정 목록 ============ -->
+  <section>
+    <h2>9 · 보고서 정정 목록</h2>
+    <p>기존 문서 서술과 실제 코드가 어긋나는 부분을 모았습니다.</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>항목</th><th>문서 서술</th><th>코드 기준</th></tr></thead>
+        <tbody>
+          <tr><td>지연보상 lead</td><td>P항에 <span class="mono">CTE + L·sinθe</span> 사용</td>
+              <td><code>LEAD_WHEELBASE_MULT = 0.0</code> — v6.7에서 상태예측으로 대체되어 <b>비활성</b></td></tr>
+          <tr><td>주 감쇠원</td><td>lead가 주 감쇠라 D항 ×0.2</td>
+              <td>현재 주 감쇠는 <b>0.45초 상태예측</b>. D×0.2는 v6.5 설정이 남은 것</td></tr>
+          <tr><td>헤딩 보정 공백</td><td>8°–60° 복원력 부재</td>
+              <td>drift 보정이 <b>6°–60° 담당</b>, 공백 없음. 실제 한계는 <b>정지·급회전 중 보정 정지</b></td></tr>
+          <tr><td>CTE 저역통과</td><td>측정 잡음 억제</td>
+              <td>α=0.8 (τ≈13 ms)로 매우 약함. 실제 역할은 <b>계단·세그먼트 전환 완충</b>.
+                  잡음 억제는 D항 LPF(α=0.16)·데드밴드가 담당</td></tr>
+          <tr><td>조향 슬루레이트</td><td>직선 1.3 °/틱</td>
+              <td>저속 2.5 · 고속 3.2 · 회복 3.5 °/틱. 직선 전용 1.3°는 <b>코드에 없음</b></td></tr>
+          <tr><td>CTE 감속 캡</td><td>최고속도 대비 비율</td>
+              <td><b>절대값</b>으로 고정 (0.48→2.2 / 0.62→1.7 / 0.80→1.2 m/s)</td></tr>
+          <tr><td>운용 상한</td><td>1.8 m/s</td>
+              <td>코드 상한은 <b>2.8 m/s</b>. 1.8이 실제 운용값이면 그렇게 구분 표기 필요</td></tr>
+          <tr><td>카메라 융합</td><td>—</td>
+              <td><code>cam_enable=False</code> 기본 — <b>구현됐으나 섀도 모드</b>(로깅만)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 10. 미확정 ============ -->
+  <section>
+    <h2>10 · 미확정 · 검증 예정</h2>
+    <ul class="t">
+      <li><strong>우회전 게인 0.82</strong> — CTE −0.105 m가 제어 언더스티어인지
+          회전 중 안테나 투영 측정편향인지 코드 주석이 “단정 불가”로 남겨둠.
+          다음 로그에서 좌·우 CTE 평균이 모두 0 근처로 오는지로 검증.</li>
+      <li><strong>큰 조향에서 게인 보정 절단</strong> — δ가 15.5°(좌)·17.9°(우)를 넘으면
+          ±20° 클램프에 막혀 보정분이 사라짐. 급코너 바깥밀림과 연관 가능성.</li>
+      <li><strong>D항 ×0.20의 근거 소멸</strong> — lead가 주 감쇠일 때 정해진 값인데
+          lead가 비활성인 현재도 그대로 남아 있음. 결과는 양호하나 근거는 재확인 필요.</li>
+      <li><strong>GPS 품질 등급의 주행 반영</strong> — 등급 판별(GQ_*)은 구현됐으나
+          등급별 속도·필터 정책은 아직 없음.</li>
+      <li><strong><code>prev_steer</code>에 클램프 전 값 저장</strong> — 포화 구간에서
+          내부 상태가 24°까지 올라가 반대 조향 시 4° 만큼 반응 지연. 포화 비율 0.6~1.4 %로 영향은 미미.</li>
+    </ul>
+  </section>
+
+  <footer>
+    출처 — src/white · driving.py v6.7.3 · gps_imu.py v5.7.1 · motor.py · iahrs.py · camera_fusion.py
+  </footer>
+</div>
+
+</body>
+</html>

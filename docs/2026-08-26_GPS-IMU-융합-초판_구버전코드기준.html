@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPS·IMU 상호 결합 구조</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:  #EBEFF2;
+    --surface: #FFFFFF;
+    --sunken:  #E2E8EC;
+    --ink:     #16212B;
+    --muted:   #556775;
+    --faint:   #7C8D9A;
+    --line:    #C7D3DB;
+    --hair:    #DCE4E9;
+    --gps:     #0E6C8B;
+    --gps-bg:  #DCEDF3;
+    --imu:     #8C3866;
+    --imu-bg:  #F3E0EA;
+    --warn:    #925D00;
+    --warn-bg: #F6E9D2;
+    --ok:      #1F6B4A;
+
+    --measure: 42rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:  #0F151B;
+      --surface: #18212A;
+      --sunken:  #131C24;
+      --ink:     #DFE7EC;
+      --muted:   #96A7B4;
+      --faint:   #748896;
+      --line:    #2E3D49;
+      --hair:    #253240;
+      --gps:     #4CB2D0;
+      --gps-bg:  #10333F;
+      --imu:     #DE8AB3;
+      --imu-bg:  #3A1F2E;
+      --warn:    #E0A63A;
+      --warn-bg: #352913;
+      --ok:      #56B98B;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:  #0F151B;
+    --surface: #18212A;
+    --sunken:  #131C24;
+    --ink:     #DFE7EC;
+    --muted:   #96A7B4;
+    --faint:   #748896;
+    --line:    #2E3D49;
+    --hair:    #253240;
+    --gps:     #4CB2D0;
+    --gps-bg:  #10333F;
+    --imu:     #DE8AB3;
+    --imu-bg:  #3A1F2E;
+    --warn:    #E0A63A;
+    --warn-bg: #352913;
+    --ok:      #56B98B;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans KR", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: var(--measure);
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
+  }
+
+  /* ---------- masthead ---------- */
+  .mast { display: flex; flex-direction: column; gap: 1rem; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  h1 {
+    font-family: "Gothic A1", sans-serif;
+    font-weight: 800;
+    font-size: clamp(2rem, 6vw, 2.9rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.05rem;
+    color: var(--muted);
+    margin: 0;
+    max-width: 34rem;
+  }
+  .mast-rule { height: 3px; background: var(--ink); width: 3.5rem; }
+
+  /* ---------- sections ---------- */
+  section { display: flex; flex-direction: column; gap: 1.1rem; }
+  h2 {
+    font-family: "Gothic A1", sans-serif;
+    font-weight: 800;
+    font-size: 1.45rem;
+    letter-spacing: -0.01em;
+    margin: 0;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--line);
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: "Gothic A1", sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin: 0.6rem 0 0;
+  }
+  p { margin: 0; }
+  strong { font-weight: 600; }
+
+  code, .mono {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.86em;
+  }
+  code {
+    background: var(--sunken);
+    padding: 0.1em 0.38em;
+    border-radius: 3px;
+    color: var(--muted);
+  }
+
+  /* ---------- key claim ---------- */
+  .claim {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--ink);
+    padding: 1.4rem 1.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .claim-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .claim p { font-size: 1.02rem; }
+
+  /* ---------- figures ---------- */
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .fig-scroll {
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 1.4rem 1rem;
+  }
+  .fig-scroll svg { display: block; min-width: 620px; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    font-size: 0.87rem;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* svg primitives */
+  .bx      { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+  .bx-gps  { fill: var(--gps-bg);  stroke: var(--gps);  stroke-width: 1.5; }
+  .bx-imu  { fill: var(--imu-bg);  stroke: var(--imu);  stroke-width: 1.5; }
+  .bx-out  { fill: var(--sunken);  stroke: var(--ink);  stroke-width: 2; }
+  .t       { font-family: "IBM Plex Sans KR", sans-serif; font-size: 13px; font-weight: 500; fill: var(--ink); }
+  .t-sm    { font-family: "IBM Plex Sans KR", sans-serif; font-size: 11px; fill: var(--muted); }
+  .t-mono  { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; fill: var(--faint); }
+  .t-gps   { fill: var(--gps); font-weight: 600; }
+  .t-imu   { fill: var(--imu); font-weight: 600; }
+  .ln      { stroke: var(--ink); stroke-width: 1.6; fill: none; }
+  .ln-gps  { stroke: var(--gps); stroke-width: 2;   fill: none; }
+  .ln-imu  { stroke: var(--imu); stroke-width: 2;   fill: none; }
+  .ln-hair { stroke: var(--line); stroke-width: 1;  fill: none; }
+
+  /* ---------- tables ---------- */
+  .tbl-scroll { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  th, td {
+    text-align: left;
+    padding: 0.62rem 0.8rem;
+    border-bottom: 1px solid var(--hair);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+    background: var(--sunken);
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; white-space: nowrap; }
+
+  /* ---------- cards ---------- */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .card-tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    align-self: flex-start;
+    padding: 0.16rem 0.5rem;
+    border: 1px solid currentColor;
+  }
+  .tag-rtk  { color: var(--ok); }
+  .tag-dr   { color: var(--warn); }
+  .tag-bl   { color: var(--gps); }
+  .card h4 { font-family: "Gothic A1", sans-serif; font-weight: 700; font-size: 1rem; margin: 0; }
+  .card p  { font-size: 0.87rem; color: var(--muted); line-height: 1.6; }
+
+  /* ---------- fix list ---------- */
+  .fix {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn);
+    padding: 1.2rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .fix-head {
+    font-family: "Gothic A1", sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--warn);
+  }
+  .fix p { font-size: 0.9rem; }
+  .fix .was { color: var(--muted); text-decoration: line-through; }
+
+  ul.tight { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  ul.tight li { padding-left: 0.2rem; }
+
+  .note {
+    font-size: 0.85rem;
+    color: var(--faint);
+    border-left: 2px solid var(--line);
+    padding-left: 0.9rem;
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.2rem;
+    font-size: 0.8rem;
+    color: var(--faint);
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="mast-rule"></div>
+    <div class="eyebrow">white 패키지 · gps_imu.py v5.7.1</div>
+    <h1>GPS·IMU 상호 결합 구조</h1>
+    <p class="standfirst">
+      GPS는 위치, IMU는 헤딩 — 이렇게 역할이 나뉜 것처럼 보이지만
+      실제 코드는 서로의 출력을 입력으로 되받는 결합 구조다. 그 고리가 어디서 닫히는지 그림으로 정리했다.
+    </p>
+  </header>
+
+  <div class="claim">
+    <div class="claim-label">핵심</div>
+    <p>
+      <strong>GPS 없이는 헤딩이 만들어지지 않고, 헤딩 없이는 위치가 확정되지 않는다.</strong>
+      GPS 변위 방향은 IMU의 누적 오차(드리프트)를 4 %씩 끌어당기고,
+      IMU 헤딩은 안테나 좌표를 뒷차축으로 옮길 방향을 정한다.
+      두 센서는 병렬로 놓인 것이 아니라 <em>하나의 고리</em>로 묶여 있다.
+    </p>
+  </div>
+
+  <!-- ============ MAIN BLOCK DIAGRAM ============ -->
+  <section>
+    <h2>융합 블록선도</h2>
+
+    <figure>
+      <div class="fig-scroll">
+        <svg viewBox="0 0 960 640" role="img"
+             aria-label="GPS 경로와 IMU 경로가 나란히 흐르다가, 헤딩이 뒷차축 투영으로 되돌아가고 GPS 변위가 yaw_offset 보정기로 들어가 서로 고리를 이루는 블록선도">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"></path>
+            </marker>
+          </defs>
+
+          <!-- lane labels -->
+          <text class="t-mono" x="175" y="26" text-anchor="middle">위치 계통 · GPS</text>
+          <text class="t-mono" x="785" y="26" text-anchor="middle">헤딩 계통 · IMU</text>
+
+          <!-- LEFT CHAIN -->
+          <rect class="bx-gps" x="60" y="46" width="230" height="54" rx="2"></rect>
+          <text class="t" x="175" y="68" text-anchor="middle">GPS 수신기</text>
+          <text class="t-mono" x="175" y="86" text-anchor="middle">/fix · 5 Hz</text>
+
+          <rect class="bx" x="60" y="132" width="230" height="54" rx="2"></rect>
+          <text class="t" x="175" y="154" text-anchor="middle">평면좌표 변환</text>
+          <text class="t-mono" x="175" y="172" text-anchor="middle">위경도 → x, y [m]</text>
+
+          <rect class="bx" x="60" y="218" width="230" height="54" rx="2"></rect>
+          <text class="t" x="175" y="240" text-anchor="middle">안테나 → 뒷차축 투영</text>
+          <text class="t-mono" x="175" y="258" text-anchor="middle">−0.865 m</text>
+
+          <!-- RIGHT CHAIN -->
+          <rect class="bx-imu" x="670" y="46" width="230" height="54" rx="2"></rect>
+          <text class="t" x="785" y="68" text-anchor="middle">IMU iAHRS</text>
+          <text class="t-mono" x="785" y="86" text-anchor="middle">/imu/data · 20 Hz</text>
+
+          <rect class="bx" x="670" y="132" width="230" height="54" rx="2"></rect>
+          <text class="t" x="785" y="154" text-anchor="middle">쿼터니언 → raw_yaw</text>
+          <text class="t-mono" x="785" y="172" text-anchor="middle">언랩(누적각) 처리</text>
+
+          <rect class="bx" x="670" y="218" width="230" height="54" rx="2"></rect>
+          <text class="t" x="785" y="240" text-anchor="middle">heading ψ</text>
+          <text class="t-mono" x="785" y="258" text-anchor="middle">raw_yaw + yaw_offset</text>
+
+          <!-- CORRECTOR BAND -->
+          <rect class="bx" x="340" y="332" width="280" height="88" rx="2"></rect>
+          <text class="t" x="480" y="356" text-anchor="middle">yaw_offset 보정기</text>
+          <text class="t-sm" x="480" y="378" text-anchor="middle">기대 진행방향 − GPS 변위방향</text>
+          <text class="t-mono" x="480" y="398" text-anchor="middle">drift × gain(0.04~0.10)</text>
+
+          <!-- ENCODER -->
+          <rect class="bx" x="340" y="452" width="280" height="46" rx="2"></rect>
+          <text class="t" x="480" y="472" text-anchor="middle">엔코더 · 속도 v</text>
+          <text class="t-mono" x="480" y="489" text-anchor="middle">보정 게이트: |v| ≥ 0.5 m/s</text>
+
+          <!-- OUTPUT -->
+          <rect class="bx-out" x="340" y="540" width="280" height="60" rx="2"></rect>
+          <text class="t" x="480" y="564" text-anchor="middle">/ego_state · 20 Hz</text>
+          <text class="t-mono" x="480" y="583" text-anchor="middle">위도 · 경도 · ψ · v</text>
+
+          <!-- chain arrows -->
+          <path class="ln" d="M175,100 L175,132" marker-end="url(#ah)"></path>
+          <path class="ln" d="M175,186 L175,218" marker-end="url(#ah)"></path>
+          <path class="ln" d="M175,272 L175,570 L340,570" marker-end="url(#ah)"></path>
+
+          <path class="ln" d="M785,100 L785,132" marker-end="url(#ah)"></path>
+          <path class="ln" d="M785,186 L785,218" marker-end="url(#ah)"></path>
+          <path class="ln" d="M785,272 L785,570 L620,570" marker-end="url(#ah)"></path>
+
+          <!-- COUPLING A : heading -> projection -->
+          <path class="ln-imu" d="M670,245 L290,245" marker-end="url(#ah)"></path>
+          <text class="t-sm t-imu" x="480" y="238" text-anchor="middle">ψ 로 “뒤쪽” 방향 결정</text>
+
+          <!-- COUPLING B : gps displacement -> corrector -->
+          <path class="ln-gps" d="M290,159 L315,159 L315,376 L340,376" marker-end="url(#ah)"></path>
+          <text class="t-sm t-gps" x="326" y="330" text-anchor="start">GPS 변위</text>
+
+          <!-- COUPLING C : corrector -> heading -->
+          <path class="ln-gps" d="M620,352 L700,352 L700,272" marker-end="url(#ah)"></path>
+          <text class="t-sm t-gps" x="710" y="330" text-anchor="start">offset 갱신</text>
+
+          <!-- COUPLING D : heading -> corrector -->
+          <path class="ln-imu" d="M785,398 L620,398" marker-end="url(#ah)"></path>
+          <text class="t-sm t-imu" x="700" y="416" text-anchor="middle">ψ, ω</text>
+
+          <!-- encoder -> corrector -->
+          <path class="ln" d="M480,452 L480,420" marker-end="url(#ah)"></path>
+
+          <!-- crossing marker note -->
+          <circle cx="315" cy="245" r="4.5" fill="var(--surface)" stroke="var(--line)" stroke-width="1"></circle>
+        </svg>
+      </div>
+      <figcaption>
+        두 계통은 나란히 흐르지만 두 곳에서 서로를 가로지른다.
+        <b>보라색</b>은 IMU 헤딩이 나가는 길, <b>청록색</b>은 GPS 정보가 나가는 길이다.
+        <b>ψ → 뒷차축 투영</b>(가로지르는 보라선)이 없으면 위치가 확정되지 않고,
+        <b>GPS 변위 → 보정기 → offset 갱신</b>(청록 고리)이 없으면 헤딩이 서서히 틀어진다.
+        가운데 작은 원은 두 신호가 만나지 않고 교차만 한다는 표시다.
+      </figcaption>
+    </figure>
+
+    <h3>고리가 닫히는 두 지점</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th>결합</th><th>무엇이 넘어가나</th><th>없으면 생기는 일</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>IMU → 위치</b></td>
+            <td>헤딩 ψ 로 안테나를 <span class="mono">0.865 m</span> 뒤로 투영</td>
+            <td>회전할 때 안테나가 바깥으로 돌아 위치가 바깥으로 부풀어 보임</td>
+          </tr>
+          <tr>
+            <td><b>GPS → 헤딩</b></td>
+            <td>연속 fix 사이의 <b>이동 방향</b></td>
+            <td>자이로 적분 오차가 계속 쌓여 헤딩이 실제 방위에서 멀어짐</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ HEADING BOOTSTRAP ============ -->
+  <section>
+    <h2>헤딩은 처음에 어떻게 생기나</h2>
+    <p>
+      GPS는 “어디에 있는지”는 알아도 “어느 쪽을 보는지”는 모른다. 정지 상태에서는 헤딩을 만들 수 없다.
+      그래서 <strong>차를 조금 굴려 이동 방향을 재는 것</strong>으로 헤딩을 처음 만든다 — 이것이 헤딩 고정(lock)이다.
+    </p>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th>단계</th><th>조건</th><th>결과</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>① 이동</td>
+            <td class="num">GPS 1.0 m + 엔코더 0.60 m<br>또는 GPS 단독 2.0 m</td>
+            <td>이동 벡터로 방위 산출<br><span class="mono">ψ = atan2(Δy, Δx)</span></td>
+          </tr>
+          <tr>
+            <td>② 안정성 확인</td>
+            <td class="num">최근 7 샘플 방향 산포 ≤ 15°</td>
+            <td>흔들린 값으로 고정하는 것을 차단</td>
+          </tr>
+          <tr>
+            <td>③ 고정</td>
+            <td>①·② 동시 충족</td>
+            <td><span class="mono">yaw_offset = ψ − raw_yaw</span> 확정</td>
+          </tr>
+          <tr>
+            <td>④ 이후</td>
+            <td>주행 내내</td>
+            <td>IMU가 ψ 를 실시간 추적, GPS는 오차만 보정</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">
+      고정 전에 방향을 잘못 박으면 이후 위치·CTE·경로 정렬이 전부 틀어진다.
+      조건을 까다롭게 건 이유가 여기에 있다.
+    </p>
+  </section>
+
+  <!-- ============ CORRECTION LADDER ============ -->
+  <section>
+    <h2>드리프트 보정 — 오차 크기별 4단</h2>
+    <p>
+      한 번 고정된 헤딩은 자이로 적분으로 이어가는데, 적분은 미세한 오차가 계속 쌓인다(드리프트).
+      코드는 <strong>틀어진 각도의 크기에 따라 다른 세기로</strong> 되돌린다.
+    </p>
+
+    <figure>
+      <div class="fig-scroll">
+        <svg viewBox="0 0 900 290" role="img"
+             aria-label="드리프트 크기 0도부터 60도 이상까지를 네 구간으로 나눈 막대 그림. 0.6도에서 8도는 연속 미세보정, 6도에서 60도는 드리프트 보정으로 6에서 8도 구간은 두 보정이 겹친다.">
+          <!-- axis -->
+          <line class="ln-hair" x1="80" y1="248" x2="860" y2="248"></line>
+          <g class="t-mono" text-anchor="middle" fill="var(--faint)">
+            <text x="80"  y="268">0°</text>
+            <text x="140" y="268">0.6°</text>
+            <text x="320" y="268">6°</text>
+            <text x="400" y="268">8°</text>
+            <text x="720" y="268">60°</text>
+          </g>
+          <g class="ln-hair">
+            <line x1="80"  y1="242" x2="80"  y2="252"></line>
+            <line x1="140" y1="242" x2="140" y2="252"></line>
+            <line x1="320" y1="242" x2="320" y2="252"></line>
+            <line x1="400" y1="242" x2="400" y2="252"></line>
+            <line x1="720" y1="242" x2="720" y2="252"></line>
+          </g>
+
+          <!-- band 0: no correction -->
+          <rect x="80" y="42" width="60" height="40" fill="var(--sunken)" stroke="var(--line)" stroke-width="1"></rect>
+          <text class="t-sm" x="110" y="34" text-anchor="middle">무보정</text>
+          <text class="t-mono" x="110" y="66" text-anchor="middle">잡음</text>
+
+          <!-- band 1: continuous -->
+          <rect x="140" y="42" width="260" height="40" fill="var(--gps-bg)" stroke="var(--gps)" stroke-width="1.5"></rect>
+          <text class="t" x="270" y="60" text-anchor="middle" fill="var(--gps)">연속 미세보정</text>
+          <text class="t-mono" x="270" y="76" text-anchor="middle" fill="var(--gps)">gain 0.040 · 5 Hz</text>
+          <text class="t-sm" x="270" y="34" text-anchor="middle">직선 주행 중에만</text>
+
+          <!-- band 2: drift -->
+          <rect x="320" y="108" width="400" height="40" fill="var(--imu-bg)" stroke="var(--imu)" stroke-width="1.5"></rect>
+          <text class="t" x="520" y="126" text-anchor="middle" fill="var(--imu)">drift 보정</text>
+          <text class="t-mono" x="520" y="142" text-anchor="middle" fill="var(--imu)">gain 0.04~0.10 · 최대 1 Hz</text>
+          <text class="t-sm" x="520" y="168" text-anchor="middle">코너 중에도 동작 (자이로 ≤ 45°/s)</text>
+
+          <!-- overlap marker -->
+          <rect x="320" y="42" width="80" height="106" fill="none" stroke="var(--ink)"
+                stroke-width="1" stroke-dasharray="3 3"></rect>
+          <text class="t-mono" x="360" y="192" text-anchor="middle" fill="var(--ink)">중첩</text>
+
+          <!-- band 3: force reset -->
+          <rect x="720" y="108" width="140" height="40" fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1.5"></rect>
+          <text class="t" x="790" y="126" text-anchor="middle" fill="var(--warn)">강제 리셋</text>
+          <text class="t-mono" x="790" y="142" text-anchor="middle" fill="var(--warn)">100 %</text>
+          <text class="t-sm" x="790" y="168" text-anchor="middle">+ 이동 1.5 m 이상</text>
+
+          <text class="t-mono" x="470" y="220" text-anchor="middle" fill="var(--faint)">가로축은 구간 표시용 — 실제 비율 아님</text>
+        </svg>
+      </div>
+      <figcaption>
+        연속 미세보정(0.6°–8°)과 drift 보정(6°–60°)은 <b>6°–8° 구간에서 겹친다.</b>
+        두 보정 사이에 끊긴 구간은 없다.
+      </figcaption>
+    </figure>
+
+    <div class="fix">
+      <div class="fix-head">보고서 정정 — “8°~60° 복원력 부재”</div>
+      <p>
+        <span class="was">연속 보정이 8°에서 중단되고 drift 보정의 발동 조건이 제한적이어서,
+        실질적으로 8°~60° 구간에는 복원력이 부재하다.</span>
+      </p>
+      <p>
+        실제 코드에서 drift 보정의 발동 문턱은 <code>DRIFT_CORRECT_THRESH_DEG = 6.0</code>이고
+        강제 리셋은 60°부터다. 즉 <strong>6°–60° 전 구간이 drift 보정의 담당 범위</strong>이며,
+        연속 보정의 상한 8°와 6°–8°에서 중첩된다. 구조적 공백은 없다.
+      </p>
+      <p>
+        다만 drift 보정에는 게이트가 붙는다 — 이동 <span class="mono">≥ 0.35 m</span>,
+        속도 <span class="mono">≥ 0.5 m/s</span>, 자이로 <span class="mono">≤ 45°/s</span>, 최소 간격 1초.
+        <strong>정지 중이거나 급회전 중에는 보정이 멈춘다</strong>는 것이 정확한 한계 서술이다.
+      </p>
+    </div>
+
+    <h3>왜 이렇게 약하게 당기나</h3>
+    <p>
+      한 번에 4 %만 당기는 이유는 <strong>GPS 이동 방향이 곧 차의 방향은 아니기 때문</strong>이다.
+      코너를 돌 때 안테나는 뒷차축보다 바깥으로 휘어 지나가므로, 그 방향을 그대로 믿으면
+      실제로는 멀쩡한 헤딩을 “틀렸다”고 판정해 버린다.
+      코드가 자이로 게이트를 걸고 <span class="mono">v·û + ω·d·n̂</span> 로
+      <em>기대 진행방향</em>을 따로 계산해 비교하는 것도 같은 이유다.
+    </p>
+  </section>
+
+
+  <!-- ============ HOW COMPARISON WORKS ============ -->
+  <section>
+    <h2>두 방향을 어떻게 “비교”하는가</h2>
+    <p>
+      GPS는 좌표를 주고 IMU는 각도를 준다. 단위가 다른 둘을 같은 잣대로 만드는 과정이
+      융합의 실제 내용이다.
+    </p>
+
+    <h3>1단계 · 위경도를 미터로</h3>
+    <div class="eq">x = radians(경도 − 원점경도) × cos(위도) × R    ← 동쪽 [m]
+y = radians(위도 − 원점위도) × R                ← 북쪽 [m]
+                                    R = 6,378,137 m</div>
+    <p>
+      <code>cos(위도)</code>가 붙는 이유는 지구가 구이기 때문이다.
+      경도 1°의 실제 거리가 적도에서는 111 km, 서울(37.5°)에서는 88 km로 줄어든다.
+      이 보정을 빼면 동서 거리가 <b>25 % 과장</b>되어 방향이 통째로 틀어진다.
+    </p>
+
+    <h3>2단계 · 두 점으로 방향 만들기</h3>
+    <div class="eq">Δx = x₂ − x₁,  Δy = y₂ − y₁
+gps_dir = atan2(Δy, Δx)          [도, 절대 방위]</div>
+    <p>
+      <code>atan2</code>를 쓰는 이유는 <code>atan(Δy/Δx)</code>가 −90°~90°만 내놓아
+      <b>동서남북을 구분하지 못하기</b> 때문이다. <code>atan2</code>는 두 값의 부호를
+      따로 보고 −180°~180° 전체를 가른다. 이제 <code>gps_dir</code>과 <code>heading</code>은
+      <b>같은 단위·같은 기준의 절대 방위</b>라 직접 뺄 수 있다.
+    </p>
+
+    <h3>3단계 · 그런데 그냥 빼면 안 된다</h3>
+    <p>두 가지를 먼저 맞춰야 한다.</p>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>함정</th><th>내용</th><th>보정</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>시간 어긋남</b></td>
+            <td>GPS 변위는 A~B 구간의 <b>평균 방향</b>인데, heading은 <b>지금</b> 값.
+                게다가 수신기 계산 지연이 0.13초 있다.</td>
+            <td>변위의 시간 중심에서 0.13초를 뺀 시점의 헤딩을
+                이력에서 <b>선형보간</b>해 꺼내 비교</td>
+          </tr>
+          <tr>
+            <td><b>안테나 편차</b></td>
+            <td>회전 중 안테나는 뒷차축보다 <b>바깥으로 휘어</b> 지나간다.
+                차는 멀쩡한데 방향이 다르게 측정된다.</td>
+            <td>“헤딩이 맞다면 안테나는 어디로 갈까”를 먼저 계산해 비교</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note">
+      시간 정렬을 하지 않았을 때의 실측 — 드리프트가 요레이트 × 0.23 s 만큼 오염되어
+      코너에서 <b>유령 드리프트 ±7~10°</b>가 나타났다. 정렬 후 사라졌다.
+    </p>
+
+    <h3>4단계 · 기대 진행방향과 최종 오차값</h3>
+    <div class="eq">안테나 속도 = v·û  +  ω·d·n̂
+              │        └ 회전 때문에 옆으로 밀리는 성분
+              └───────── 앞으로 가는 성분
+
+exp_dir = atan2(v·sinψ + ω·d·cosψ,
+                v·cosψ − ω·d·sinψ)
+
+drift   = exp_dir − gps_dir        ← 오차값, 목표 0</div>
+    <p>
+      원운동의 <span class="mono">v = ωr</span> 그대로다. 뒷차축에서
+      <span class="mono">d = 0.865 m</span> 떨어진 안테나는 차가 ω로 돌 때
+      옆으로 <span class="mono">ω × 0.865</span> 만큼 추가 속도를 갖는다.
+    </p>
+    <div class="eq">v = 2 m/s, ω = 0.5 rad/s (≈29°/s) 일 때
+옆 성분 = 0.5 × 0.865 = 0.43 m/s
+편차각  = atan(0.43 / 2) = 12.2°     ← 무시하면 12도 오판</div>
+    <p>
+      이 모델을 적용한 뒤 잔차는 곡선 구간을 포함해 <b>0.1° ± 2.8°</b>로 떨어졌다.
+    </p>
+  </section>
+
+  <!-- ============ WHY 4 PERCENT ============ -->
+  <section>
+    <h2>왜 하필 4 %인가 — 0.96 : 0.04</h2>
+    <div class="eq">correction = drift × 0.04
+yaw_offset −= correction
+
+즉  새 헤딩 = 0.96 × (IMU 헤딩) + 0.04 × (GPS 방향)</div>
+    <p>
+      제어공학에서 <b>상보 필터</b>라 부르는 구조다. IMU는 <b>짧은 시간에 정확</b>하고
+      GPS는 <b>긴 시간에 정확</b>해서, 서로의 약점을 정확히 메운다.
+    </p>
+
+    <h3>양 극단을 보면 이유가 보인다</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>게인</th><th>결과</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1.00 (GPS 100 %)</td>
+              <td>0.35 m 이동 중 GPS 오차 2 cm → <b>약 3.3° 방향 오차</b>가 매번 헤딩에 직격.
+                  조향이 5 Hz로 덜컥거리고, 코너에서는 멀쩡한 헤딩이 파괴된다.</td></tr>
+          <tr><td class="num">0.00 (IMU 100 %)</td>
+              <td>부드럽지만 자이로 오차가 계속 쌓여 <b>몇 분 뒤 완전히 틀어진다.</b></td></tr>
+          <tr><td class="num">0.04</td>
+              <td>아래 표 참조 — 코너보다 느리고 드리프트보다 빠르다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>시간상수로 환산하면</h3>
+    <div class="eq">0.96ⁿ = 0.5  →  n = log(0.5)/log(0.96) ≈ 17회
+17회 ÷ 5 Hz ≈ 3.4초      ← 오차가 절반으로 줄어드는 시간</div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>시간 규모</th><th>무엇</th><th>4 % 필터의 반응</th></tr></thead>
+        <tbody>
+          <tr><td class="num">0.2초</td><td>GPS 잡음 한 번</td><td>거의 무시 ✓</td></tr>
+          <tr><td class="num">1~2초</td><td>코너 한 번 도는 시간</td><td>거의 무시 ✓ — 헤딩이 안 망가진다</td></tr>
+          <tr><td class="num">수십 초~분</td><td>자이로 드리프트 축적</td><td>충분히 따라잡음 ✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>“코너보다는 느리고, 드리프트보다는 빠른” 자리</strong>가 4 %의 근거다.</p>
+
+    <h3>고정이 아니다 — 오차가 크면 더 세게</h3>
+    <div class="eq">gain = min(0.10, 0.04 + |drift| / 250)</div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>drift</th><th>gain</th><th>IMU : GPS</th></tr></thead>
+        <tbody>
+          <tr><td class="num">6°</td><td class="num">0.064</td><td class="num">93.6 : 6.4</td></tr>
+          <tr><td class="num">15°</td><td class="num">0.10 (상한)</td><td class="num">90 : 10</td></tr>
+          <tr><td class="num">60° ↑</td><td class="num">1.00</td><td class="num">0 : 100 (강제 리셋)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      작은 오차는 <b>잡음일 가능성</b>이 있지만 큰 오차는 <b>진짜일 가능성</b>이 높다.
+      그래서 살살 → 세게 → 즉시로 단계가 나뉜다.
+    </p>
+
+    <div class="fix">
+      <div class="fix-head">게인보다 게이트가 중요하다</div>
+      <p>
+        잘못된 순간에 보정하면 4 %든 1 %든 헤딩이 망가진다. 특히
+        <b>정지 중에는 GPS가 제자리에서 ±2 cm씩 떨려</b> 방향이 완전히 무작위가 된다.
+        그 값으로 헤딩을 고치면 재앙이다.
+      </p>
+      <p>
+        그래서 <b>속도 ≥ 0.5 m/s · 이동 ≥ 0.35 m · 자이로 ≤ 45°/s · 간격 ≥ 1초</b>를
+        모두 만족할 때만 보정한다. 연속 미세보정은 여기에 더해
+        최근 7점이 <b>직선을 이루는지</b>(산포 ≤ 4°)까지 확인한다.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ DR MATH ============ -->
+  <section>
+    <h2>DR — 눈을 감고 걷는 방법</h2>
+    <p>
+      GPS가 <b>1.5초</b> 끊기면 DR로 넘어간다. 5 Hz 기준으로 7~8번 연속 결측이니,
+      한두 번 빠진 것은 정상으로 보고 기다린다는 뜻이다.
+    </p>
+
+    <h3>위치를 만드는 식</h3>
+    <div class="eq">ψ += ω · dt                  ← 자이로로 방향을 이어감
+x += v · cos(ψ) · dt         ← 속도를 방향으로 쪼개 더함
+y += v · sin(ψ) · dt</div>
+    <p>
+      삼각함수로 방향을 쪼개는 것이 전부다. 눈을 감고 걸으면서
+      <b>“동쪽으로 세 걸음, 북쪽으로 두 걸음”</b>을 계속 적어 나가는 것과 같다.
+      걸음 수는 엔코더가, 방향은 자이로가 댄다.
+    </p>
+
+    <h3>왜 뒷차축이어야 이 식이 성립하나</h3>
+    <p>
+      자동차 바퀴는 구르기만 하고 옆으로 미끄러지지 않는다. 그래서 뒷바퀴 중심은
+      <b>항상 차가 향한 방향으로만</b> 움직인다 — 즉 <b>횡속도가 0</b>이다.
+    </p>
+    <div class="eq">뒷차축 : 속도 = v·û                 ← 성분 하나로 완전
+안테나 : 속도 = v·û + ω·d·n̂        ← 옆 성분이 남는다</div>
+    <p>
+      안테나 좌표로 DR을 하면 이 <span class="mono">ω·d</span> 옆 성분을 놓쳐
+      <b>회전할 때마다 위치가 어긋난다.</b> 뒷차축 투영(0.865 m)이 단순한 위치 보정이 아니라
+      <b>DR을 성립시키는 전제조건</b>인 이유가 이것이다.
+    </p>
+
+    <h3>DR의 한계</h3>
+    <p>
+      DR도 적분이라 오차가 쌓인다. 그것도 <b>두 겹으로</b> — 자이로 오차는 방향을,
+      엔코더 오차는 거리를 틀어놓는다. 특히 방향 오차가 더 치명적이다.
+    </p>
+    <div class="eq">방향이 5° 틀어진 채 10 m 주행
+→ 옆으로 벗어난 거리 = 10 × sin(5°) = 0.87 m</div>
+    <p>
+      그래서 DR 중에는 <b>주행 속도를 낮춘다.</b> 천천히 가면 같은 시간에 덜 벗어나고,
+      복구할 여유가 생긴다.
+    </p>
+
+    <h3>복구 — 순간이동하면 안 된다</h3>
+    <div class="eq">alpha  = 경과시간 / 3.0                 (0 → 1)
+smooth = 0.5 × (1 − cos(π × alpha))     ← 코사인 곡선
+위치   = 시작 + (목표 − 시작) × smooth</div>
+    <p>
+      위치가 갑자기 0.5 m 점프하면 CTE가 그만큼 튀고, 조향이 확 꺾여 차가 덜컥거린다.
+      <code>0.5(1−cos)</code>는 시작(α=0)과 끝(α=1)에서 <b>미분값이 0</b>이라
+      부드럽게 출발하고 부드럽게 멈춘다. 게임·애니메이션의 ease-in-out과 같은 곡선이다.
+    </p>
+  </section>
+
+  <!-- ============ THREE MODES ============ -->
+  <section>
+    <h2>GPS 상태에 따른 세 가지 모드</h2>
+    <p>
+      GPS가 항상 오는 것은 아니다. 신호가 끊기면 위치를 만드는 방식 자체가 바뀐다.
+    </p>
+    <div class="cards">
+      <div class="card">
+        <span class="card-tag tag-rtk">정상</span>
+        <h4>RTK 주행</h4>
+        <p>
+          GPS fix가 들어올 때마다 위치를 갱신한다.
+          헤딩은 IMU가 이어가고 GPS가 4 %씩 보정한다.
+        </p>
+      </div>
+      <div class="card">
+        <span class="card-tag tag-dr">단절</span>
+        <h4>DR 추측주행</h4>
+        <p>
+          GPS 1.5초 미수신 시 전환. 헤딩 ψ 와 엔코더 속도만으로
+          위치를 적분해 이어간다. 주행 속도도 함께 낮춘다.
+        </p>
+      </div>
+      <div class="card">
+        <span class="card-tag tag-bl">복귀</span>
+        <h4>블렌딩</h4>
+        <p>
+          GPS가 돌아오면 어긋난 위치로 순간이동하지 않고
+          3초에 걸쳐 코사인 곡선으로 부드럽게 옮긴다.
+        </p>
+      </div>
+    </div>
+    <p class="note">
+      DR 중에는 뒷차축 좌표를 쓰는 것이 특히 중요하다.
+      뒷차축은 기구학상 옆으로 미끄러지지 않으므로
+      <span class="mono">v·[cos ψ, sin ψ]</span> 적분이 그대로 정확해진다.
+    </p>
+  </section>
+
+  <!-- ============ MULTIRATE ============ -->
+  <section>
+    <h2>세 개의 주기가 겹쳐 돈다</h2>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th>계층</th><th>주기</th><th>하는 일</th><th>사이를 메우는 것</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>GPS</td>
+            <td class="num">5 Hz · 200 ms</td>
+            <td>절대 위치 갱신</td>
+            <td>IMU 헤딩 + 엔코더 속도</td>
+          </tr>
+          <tr>
+            <td>융합·제어</td>
+            <td class="num">20 Hz · 50 ms</td>
+            <td><span class="mono">/ego_state</span> 발행, 조향·속도 계산</td>
+            <td>0.45초 상태 예측</td>
+          </tr>
+          <tr>
+            <td>액추에이터</td>
+            <td class="num">100 Hz · 10 ms</td>
+            <td>아두이노 자체 PID로 바퀴 속도 유지</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      느린 층이 갱신되기를 기다리지 않고 <strong>빠른 층이 그 사이를 메우는 것</strong>이
+      이 구조의 요점이다. GPS가 0.2초에 한 번만 와도 제어는 0.05초마다 끊김 없이 돈다.
+    </p>
+  </section>
+
+  <!-- ============ SUMMARY OF CORRECTIONS ============ -->
+  <section>
+    <h2>보고서에 반영할 정정</h2>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th>항목</th><th>문서 서술</th><th>코드 기준</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>헤딩 보정 공백</td>
+            <td>8°–60° 복원력 부재</td>
+            <td>drift 보정이 6°–60° 담당. 공백 없음.
+                한계는 <b>정지·급회전 중 보정 정지</b>.</td>
+          </tr>
+          <tr>
+            <td>지연보상 CTE (lead)</td>
+            <td>P항에 <span class="mono">CTE + L·sin θe</span> 사용</td>
+            <td><code>LEAD_WHEELBASE_MULT = 0.0</code> — v6.7에서
+                상태예측으로 대체되어 <b>비활성</b>.</td>
+          </tr>
+          <tr>
+            <td>주 감쇠원</td>
+            <td>lead가 주 감쇠라 D항 ×0.2</td>
+            <td>현재 주 감쇠는 <b>0.45초 상태예측</b>.
+                D×0.2는 v6.5 설정이 남은 것.</td>
+          </tr>
+          <tr>
+            <td>조향 슬루레이트</td>
+            <td>직선 1.3°/틱</td>
+            <td>저속 2.5° · 고속 3.2° · 회복 3.5°/틱.
+                직선 전용 1.3° 값은 <b>코드에 없음</b>.</td>
+          </tr>
+          <tr>
+            <td>CTE 저역통과</td>
+            <td>측정 잡음 억제</td>
+            <td>α=0.8 (τ≈13 ms)로 매우 약함.
+                실제 역할은 <b>5 Hz→20 Hz 계단·세그먼트 전환 완충</b>.
+                잡음 억제는 D항 LPF(α=0.16)와 데드밴드가 담당.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    출처 — src/white/white/gps_imu.py (v5.7.1) · driving.py (v6.7.3) · iahrs.py · motor.py
+  </footer>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>white 코드 감사 리포트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+
+<style>
+:root{
+ --ground:#EBEFF2; --surface:#FFFFFF; --sunken:#E2E8EC;
+ --ink:#16212B; --muted:#556775; --faint:#7C8D9A; --line:#C7D3DB; --hair:#DCE4E9;
+ --old:#8C3866; --oldbg:#F3E0EA;      /* 로컬(구) */
+ --new:#0E6C8B; --newbg:#DCEDF3;      /* GitHub(신) */
+ --warn:#A33A16; --warnbg:#F7E2DA;    /* 재정정 */
+ --ok:#1F6B4A; --okbg:#DDEBE3;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --ground:#0F151B; --surface:#18212A; --sunken:#131C24;
+ --ink:#DFE7EC; --muted:#96A7B4; --faint:#748896; --line:#2E3D49; --hair:#253240;
+ --old:#DE8AB3; --oldbg:#3A1F2E;
+ --new:#4CB2D0; --newbg:#10333F;
+ --warn:#E8845C; --warnbg:#3A1F14;
+ --ok:#56B98B; --okbg:#12301F;
+}}
+:root[data-theme="dark"]{
+ --ground:#0F151B; --surface:#18212A; --sunken:#131C24;
+ --ink:#DFE7EC; --muted:#96A7B4; --faint:#748896; --line:#2E3D49; --hair:#253240;
+ --old:#DE8AB3; --oldbg:#3A1F2E;
+ --new:#4CB2D0; --newbg:#10333F;
+ --warn:#E8845C; --warnbg:#3A1F14;
+ --ok:#56B98B; --okbg:#12301F;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+ font-family:"IBM Plex Sans KR",system-ui,sans-serif;font-size:16px;line-height:1.72;
+ -webkit-font-smoothing:antialiased}
+.wrap{max-width:50rem;margin:0 auto;padding:3.5rem 1.4rem 6rem;
+ display:flex;flex-direction:column;gap:3.2rem}
+
+.mast{display:flex;flex-direction:column;gap:.85rem}
+.rule{height:3px;width:3.5rem;background:var(--warn)}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.16em;
+ text-transform:uppercase;color:var(--faint)}
+h1{font-family:"Gothic A1",sans-serif;font-weight:800;font-size:clamp(2rem,6vw,2.8rem);
+ line-height:1.14;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.standfirst{color:var(--muted);margin:0;font-size:1.04rem;max-width:38rem}
+
+section{display:flex;flex-direction:column;gap:1.05rem}
+h2{font-family:"Gothic A1",sans-serif;font-weight:800;font-size:1.42rem;letter-spacing:-.01em;
+ margin:0;padding-bottom:.55rem;border-bottom:1px solid var(--line);text-wrap:balance}
+h3{font-family:"Gothic A1",sans-serif;font-weight:700;font-size:1.04rem;margin:.7rem 0 0}
+p{margin:0} strong{font-weight:600}
+code,.mono{font-family:"IBM Plex Mono",monospace;font-size:.86em}
+code{background:var(--sunken);padding:.08em .36em;color:var(--muted)}
+
+.alert{background:var(--warnbg);border:1px solid var(--warn);border-left:5px solid var(--warn);
+ padding:1.5rem 1.7rem;display:flex;flex-direction:column;gap:.8rem}
+.alert-k{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.15em;
+ text-transform:uppercase;color:var(--warn);font-weight:600}
+.alert h3{margin:0;font-size:1.2rem;color:var(--ink)}
+.alert p{font-size:.97rem}
+
+.eq{font-family:"IBM Plex Mono",monospace;font-size:.83rem;background:var(--surface);
+ border:1px solid var(--line);padding:.85rem 1rem;overflow-x:auto;white-space:pre;line-height:1.6}
+
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.88rem;background:var(--surface);
+ border:1px solid var(--line)}
+th,td{text-align:left;padding:.55rem .75rem;border-bottom:1px solid var(--hair);vertical-align:top}
+th{font-family:"IBM Plex Mono",monospace;font-size:.65rem;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--faint);font-weight:500;background:var(--sunken);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+td.n{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.old{background:var(--oldbg);color:var(--old);font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+td.new{background:var(--newbg);color:var(--new);font-family:"IBM Plex Mono",monospace;white-space:nowrap;font-weight:600}
+.x{color:var(--warn);font-weight:700}
+.o{color:var(--ok);font-weight:700}
+
+.flag{border-left:3px solid var(--warn);background:var(--warnbg);padding:.8rem 1rem;font-size:.9rem}
+.flag b{color:var(--warn)}
+.good{border-left:3px solid var(--ok);background:var(--okbg);padding:.8rem 1rem;font-size:.9rem}
+.good b{color:var(--ok)}
+.note{font-size:.86rem;color:var(--faint);border-left:2px solid var(--line);padding-left:.9rem}
+
+ul.t{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.35rem}
+
+.legend{display:flex;flex-wrap:wrap;gap:1rem;font-size:.83rem;color:var(--muted)}
+.lg{display:inline-flex;align-items:center;gap:.4rem}
+.sw{width:13px;height:13px;border:1.5px solid;flex:none}
+.sw-o{background:var(--oldbg);border-color:var(--old)}
+.sw-n{background:var(--newbg);border-color:var(--new)}
+
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.9rem}
+.lk{display:flex;flex-direction:column;gap:.35rem;background:var(--surface);
+ border:1px solid var(--line);padding:1rem 1.1rem;text-decoration:none;color:inherit}
+.lk:hover{border-color:var(--ink)}
+.lk:focus-visible{outline:2px solid var(--new);outline-offset:2px}
+.lk b{font-family:"Gothic A1",sans-serif;font-weight:700;font-size:.96rem}
+.lk span{font-size:.81rem;color:var(--muted);line-height:1.5}
+.lk em{font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--new);font-style:normal}
+
+footer{border-top:1px solid var(--line);padding-top:1.1rem;
+ font-family:"IBM Plex Mono",monospace;font-size:.76rem;color:var(--faint)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="rule"></div>
+  <div class="eyebrow">GitHub 본선 확정 · 2026-08-27 · 재작업 완료</div>
+  <h1>white 코드 감사 리포트</h1>
+  <p class="standfirst">
+    지금까지 문서화한 코드와 GitHub 저장소의 코드를 전수 대조한 결과
+    <strong>두 벌은 같은 코드가 아니었다.</strong>
+    GitHub을 본선으로 확정하고 <strong>코드 리더를 전면 재빌드했다.</strong>
+  </p>
+</header>
+
+<!-- ══════ 1. 경고 ══════ -->
+<div class="alert">
+  <div class="alert-k">먼저 알아야 할 것</div>
+  <h3>지금까지의 문서는 구버전 사본을 기준으로 작성됐다</h3>
+  <p>
+    이 세션의 작업 폴더(<code>/home/user/KIMDOHYEON/src/white</code>)에 있던 코드와,
+    GitHub <code>white_ws</code> 저장소의 코드가 <strong>모든 파일에서 다르다.</strong>
+    GitHub 쪽이 더 최신이고, 사용자의 보고서(hwpx)가 서술한 내용과 일치한다.
+  </p>
+  <p>
+    그 결과 <strong>제가 앞서 “문서가 틀렸다”고 지적한 7건 중 4건이 오히려 틀렸다.</strong>
+    보고서는 맞았고, 제가 본 코드가 옛것이었다. 아래 4·5장에 정확히 무엇이 뒤집혔는지 정리했다.
+  </p>
+</div>
+
+<!-- ══════ 1.5 판정 근거 ══════ -->
+<section>
+  <h2>0 · 왜 GitHub을 최신으로 판정했나</h2>
+  <p>추측이 아니라 <strong>코드 안에 남은 증거 5가지</strong>로 판정했다.</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>근거</th><th>내용</th></tr></thead>
+      <tbody>
+        <tr><td class="n">①</td><td><b>버전 번호가 더 높다</b></td>
+            <td><code>gps_imu.py</code> 헤더가 로컬 <b>v5.7.1</b> vs GitHub <b>v6.0</b>.
+                v6.0 변경 로그가 “v5.8.1 → v6.0”이라고 적혀 있어 <b>로컬이 그 이전 단계</b>임이 명시된다</td></tr>
+        <tr><td class="n">②</td><td><b>날짜가 뒤에 있다</b></td>
+            <td>GitHub gps_imu 헤더에 <code>2026-07-31</code>. 로컬 헤더의 최신 항목은 <code>0703</code>(7월 3일).
+                driving.py의 튜닝 주석에도 <code>[0713]</code>(7월 13일)이 있어 <b>로컬보다 열흘 이상 뒤</b>다</td></tr>
+        <tr><td class="n">③</td><td><b>기능이 정리된 방향이다</b></td>
+            <td>v6.0 로그가 “<b>융합 비교실험 노브를 전부 제거했다</b>”라고 명시한다.
+                실험 코드를 <b>덧붙인 게 아니라 걷어낸</b> 것이므로 실험 이후 단계다</td></tr>
+        <tr><td class="n">④</td><td><b>알려진 문제가 고쳐져 있다</b></td>
+            <td>로컬의 절대값 감속 캡이 GitHub에서는 <b>비율 방식</b>으로 바뀌었고,
+                코드 주석이 그 이유를 적어두었다 — “절대값으로 두면 상한을 낮출 때 캡이 조용히 무효가 된다”.
+                <b>문제를 겪고 고친 흔적</b>이다</td></tr>
+        <tr><td class="n">⑤</td><td><b>보고서와 일치한다</b></td>
+            <td>사용자 보고서의 “79 / 61 / 43 %”, “1.41 / 1.09 / 0.77”, “직선 1.3 °/틱”,
+                “P항에 CTE + L·sinθe” — <b>네 항목 모두 GitHub 코드와 정확히 일치</b>하고 로컬과는 다르다</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="good">
+    <b>결론.</b> GitHub <code>white_ws</code>가 본선이고, 로컬 사본은 카메라 융합을 실험하던
+    <b>7월 초 시점의 가지</b>다. 보고서가 서술한 시스템은 GitHub 쪽이다.
+  </div>
+
+  <h3>재작업 결과</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>항목</th><th>조치</th></tr></thead>
+      <tbody>
+        <tr><td>코드 리더</td><td>GitHub 소스로 <b>전면 재빌드</b> — 아래 7장 링크</td></tr>
+        <tr><td>줄 번호 방식</td><td>하드코딩 → <b>앵커(코드 문구) 기반</b>으로 전환.
+            버전이 바뀌어도 구역이 자동으로 따라간다</td></tr>
+        <tr><td>용어 사전</td><td>lead·속도상한·감속캡·슬루 등 <b>7개 항목 GitHub 값으로 갱신</b></td></tr>
+        <tr><td>설명 구역</td><td>25개 앵커 <b>전부 해석 성공</b> — driving 18개 · gps_imu 5개 · motor 2개</td></tr>
+        <tr><td>카메라 파일</td><td>GitHub에 없으므로 <b>목록에서 제외</b> (8개 파일)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════ 2. 파일 대조 ══════ -->
+<section>
+  <h2>1 · 파일 대조</h2>
+  <div class="legend">
+    <span class="lg"><span class="sw sw-o"></span>로컬 사본 (문서화에 쓴 것)</span>
+    <span class="lg"><span class="sw sw-n"></span>GitHub <code>white_ws</code> (최신)</span>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>파일</th><th>로컬</th><th>GitHub</th><th>판정</th></tr></thead>
+      <tbody>
+        <tr><td><code>driving.py</code></td><td class="old">1,632줄</td><td class="new">1,944줄</td>
+            <td><span class="x">다름</span> · +312줄</td></tr>
+        <tr><td><code>gps_imu.py</code></td><td class="old">1,213줄 · v5.7.1</td><td class="new">1,142줄 · v6.0</td>
+            <td><span class="x">다름</span> · 버전 상이</td></tr>
+        <tr><td><code>motor.py</code></td><td class="old">433줄</td><td class="new">529줄</td>
+            <td><span class="x">다름</span> · +96줄</td></tr>
+        <tr><td><code>route_remodeler.py</code></td><td class="old">752줄</td><td class="new">770줄</td>
+            <td><span class="x">다름</span></td></tr>
+        <tr><td><code>sensor_monitor.py</code></td><td class="old">247줄</td><td class="new">209줄</td>
+            <td><span class="x">다름</span></td></tr>
+        <tr><td><code>iahrs.py</code></td><td class="old">231줄</td><td class="new">236줄</td>
+            <td><span class="x">다름</span></td></tr>
+        <tr><td><code>mapping.py</code></td><td class="old">202줄</td><td class="new">214줄</td>
+            <td><span class="x">다름</span></td></tr>
+        <tr><td><code>prompt.py</code></td><td class="old">117줄</td><td class="new">129줄</td>
+            <td><span class="x">다름</span></td></tr>
+        <tr><td><code>camera_fusion.py</code></td><td class="old">319줄</td><td class="new">없음</td>
+            <td><span class="x">GitHub에 없음</span></td></tr>
+        <tr><td><code>lane_camera_bridge.py</code></td><td class="old">213줄</td><td class="new">없음</td>
+            <td><span class="x">GitHub에 없음</span></td></tr>
+        <tr><td><code>__init__.py</code></td><td class="n">0줄</td><td class="n">0줄</td>
+            <td><span class="o">동일</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>내용이 같은 파일은 빈 <code>__init__.py</code> 하나뿐이다.</strong> 나머지 9개는 전부 다르다.</p>
+
+  <h3>두 벌의 성격</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th></th><th>로컬 사본</th><th>GitHub <code>white_ws</code></th></tr></thead>
+      <tbody>
+        <tr><td>카메라 차선·신호등</td><td class="old">포함 (섀도 모드)</td><td class="new">완전히 제거</td></tr>
+        <tr><td>gps_imu 버전</td><td class="old">v5.7.1</td><td class="new">v6.0 “논문 데이터 수집용 정리”</td></tr>
+        <tr><td>융합 비교실험 노브</td><td class="old">일부 존재</td><td class="new">전부 제거</td></tr>
+        <tr><td>속도 상한</td><td class="old">코드에 2.8 하드코딩</td><td class="new">ROS 파라미터 · 기본 1.8</td></tr>
+        <tr><td>최근 커밋</td><td class="old">—</td><td class="new">2026-08-27 “docs: README 추가”</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    로컬 사본은 <b>카메라 융합을 실험하던 가지</b>, GitHub은 그 실험을 걷어내고 정리한 <b>본선</b>으로 보인다.
+    보고서는 본선을 기준으로 쓰였다.
+  </p>
+</section>
+
+<!-- ══════ 3. 값이 달라진 곳 ══════ -->
+<section>
+  <h2>2 · 값이 달라진 핵심 6건</h2>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>설정</th><th>로컬</th><th>GitHub</th><th>의미</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>LEAD_WHEELBASE_MULT</code></td>
+          <td class="old">0.0 (꺼짐)</td><td class="new">1.2 (켜짐)</td>
+          <td>지연보상 lead가 <b>다시 활성화</b>됐다. 주석에 <code>0.0→1.2→1.4</code> 조정 이력이 남아 있다</td>
+        </tr>
+        <tr>
+          <td><code>PREDICT_HORIZON_S</code></td>
+          <td class="old">0.45</td><td class="new">0.50</td>
+          <td>상태예측을 0.05초 더 멀리 본다. 코드 주석의 권장 범위(0.30~0.50) 상단</td>
+        </tr>
+        <tr>
+          <td><code>max_speed_ms</code></td>
+          <td class="old">2.8 하드코딩</td><td class="new">ROS 파라미터<br>기본 1.8</td>
+          <td>런치에서 바꿀 수 있게 됐고, <b>기본값이 이미 1.8</b>이다</td>
+        </tr>
+        <tr>
+          <td><code>CTE_RECOVER_CAPS</code></td>
+          <td class="old">절대값<br>2.2 / 1.7 / 1.2</td><td class="new">비율 산출<br>79 / 61 / 43 %</td>
+          <td><b>비율 방식으로 이미 개선됨.</b> 상한을 바꿔도 감속 프로파일이 유지된다</td>
+        </tr>
+        <tr>
+          <td><code>min_speed_ms</code></td>
+          <td class="old">1.0 고정</td><td class="new">비율 + 하한 0.8</td>
+          <td>상한 1.8에서 <code>min(1.8, max(0.8, 1.8×0.357)) = 0.8</code></td>
+        </tr>
+        <tr>
+          <td><code>STEER_STEP_STRAIGHT_DEG</code></td>
+          <td class="old">없음</td><td class="new">1.3 °/틱</td>
+          <td><b>직선 전용 슬루가 신설됐다.</b> 직선에서 더 뻣뻣하게 잡는다</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>감속 캡 비율의 정체</h3>
+  <div class="eq">SPEED_TUNED_REF = 2.8              # 비율을 뽑은 기준 상한
+
+CTE_RECOVER_CAP_RATIOS = [(0.48, 2.2/2.8),   # 0.786 = 79 %
+                          (0.62, 1.7/2.8),   # 0.607 = 61 %
+                          (0.80, 1.2/2.8)]   # 0.429 = 43 %
+
+# 실제 캡 = max_speed_ms × 비율
+#   상한 1.8 →  1.414 / 1.093 / 0.771</div>
+  <div class="good">
+    <b>보고서의 “79 % / 61 % / 43 %, 1.8 기준 1.41 / 1.09 / 0.77”은 정확히 맞다.</b><br>
+    코드 주석도 같은 이유를 적어두었다 — <em>“캡을 절대값으로 두면 상한을 낮출 때 상한 이상인 캡이
+    조용히 무효가 된다. 비율로 두면 상한만 바꿔도 감속 프로파일의 모양이 그대로 유지된다.”</em>
+  </div>
+</section>
+
+<!-- ══════ 4. 재정정 ══════ -->
+<section>
+  <h2>3 · 제 정정의 재정정</h2>
+  <p>
+    앞서 “보고서가 코드와 다르다”고 지적한 7건을 GitHub 기준으로 다시 판정했다.
+  </p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>항목</th><th>제가 한 말</th><th>GitHub 기준 판정</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>lead 항</b></td>
+          <td class="old">“계수 0이라 비활성”</td>
+          <td><span class="x">제 말이 틀림</span> — <code>MULT = 1.2</code>로 <b>켜져 있다.</b>
+              보고서의 “P항에 CTE + L·sinθe 사용”이 맞다</td>
+        </tr>
+        <tr>
+          <td><b>주 감쇠원</b></td>
+          <td class="old">“lead가 아니라 상태예측”</td>
+          <td><span class="x">제 말이 틀림</span> — lead가 살아 있으므로
+              “lead가 주 감쇠, D는 ×0.2 백업”이라는 보고서 서술이 맞다</td>
+        </tr>
+        <tr>
+          <td><b>감속 캡</b></td>
+          <td class="old">“비율이 아니라 절대값”</td>
+          <td><span class="x">제 말이 틀림</span> — <b>비율 방식</b>이다.
+              보고서 수치가 소수점까지 정확하다</td>
+        </tr>
+        <tr>
+          <td><b>조향 슬루</b></td>
+          <td class="old">“직선 1.3°/틱은 코드에 없음”</td>
+          <td><span class="x">제 말이 틀림</span> —
+              <code>STEER_STEP_STRAIGHT_DEG = 1.3</code>이 존재한다</td>
+        </tr>
+        <tr>
+          <td><b>운용 상한 1.8</b></td>
+          <td class="old">“코드는 2.8, 확인 필요”</td>
+          <td><span class="o">보고서가 맞음</span> — ROS 파라미터 <b>기본값이 1.8</b>이다.
+              “코드 수정 적용”이 아니라 <b>원래 설계값</b>이었다</td>
+        </tr>
+        <tr>
+          <td><b>8~60° 공백</b></td>
+          <td class="old">“공백 없음, 6°부터 담당”</td>
+          <td><span class="o">제 말이 맞음</span> — GitHub도
+              <code>DRIFT_CORRECT_THRESH_DEG = 6.0</code>. 연속보정(0.6~8°)과 6~8°에서 겹친다</td>
+        </tr>
+        <tr>
+          <td><b>CTE 저역통과</b></td>
+          <td class="old">“잡음 필터가 아니라 계단 완충”</td>
+          <td><span class="o">제 말이 맞음</span> — 계수는 양쪽 동일(α=0.80, τ≈13 ms).
+              D항 필터(α=0.16)가 20배 강하다는 분석도 그대로 유효</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flag">
+    <b>정리 — 4건은 제가 틀렸고 3건은 맞았다.</b><br>
+    틀린 4건은 전부 <b>구버전 사본을 최신본으로 착각한 데서</b> 나왔다.
+    보고서의 “8~60° 복원력 부재”와 “CTE LPF가 잡음을 억제한다”는 두 항목만 실제로 수정이 필요하다.
+  </div>
+
+  <h3>보고서에서 실제로 고쳐야 할 것 — 2건뿐</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>현재 서술</th><th>수정안</th></tr></thead>
+      <tbody>
+        <tr><td class="n">①</td>
+          <td>“연속 보정이 8°에서 중단되고 drift 보정의 발동 조건이 제한적이어서,
+              실질적으로 8°~60° 구간에는 복원력이 부재하다”</td>
+          <td>“연속 미세보정(0.6~8°)과 drift 보정(6~60°)이 6~8°에서 중첩되어 <b>각도 구간의 공백은 없다.</b>
+              다만 drift 보정은 속도 0.5 m/s·이동 0.35 m·자이로 45°/s 게이트를 두므로
+              <b>정지 상태와 급회전 중에는 보정이 정지</b>한다. 이것이 실질적 한계다.”</td></tr>
+        <tr><td class="n">②</td>
+          <td>“CTE 저역통과(LPF): 측정 잡음을 눌러 조향이 떨리지 않게 한다”</td>
+          <td>“CTE 저역통과(α=0.8, τ≈13 ms)는 필터 강도가 낮아 잡음 제거 효과가 작다.
+              실제 역할은 <b>GPS 5 Hz → 제어 20 Hz 계단 단차를 2~3주기에 분산</b>시켜
+              미분항이 펄스로 튀는 것을 막는 것이다. 잡음 억제는 D항 필터(α=0.16)와
+              데드밴드(0.02~0.06 m), 잔떨림 억제(|CTE|&lt;0.08 m)가 담당한다.”</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════ 5. 신규 기능 ══════ -->
+<section>
+  <h2>4 · GitHub 최신본에만 있는 기능</h2>
+  <p>로컬 사본에는 없고 GitHub에만 있는 것들이다. 보고서에 추가할 만한 항목이다.</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>기능</th><th>내용</th></tr></thead>
+      <tbody>
+        <tr><td><b>속도 파라미터화</b></td>
+            <td><code>max_speed_ms</code>를 ROS 파라미터로 받고, 하한·모든 속도캡을
+                <code>_apply_speed_scaling()</code>이 <b>비례 재산출</b>한다. 실행 중 변경도 반영된다</td></tr>
+        <tr><td><b>조향 기반 속도캡</b></td>
+            <td><code>STEER_SPEED_CAPS</code> — 조향각이 7° 이상이면 속도를 추가로 제한.
+                CTE 기반 캡과 별개 채널</td></tr>
+        <tr><td><b>Cusp(전후진 전환점) 처리</b></td>
+            <td><code>CUSP_SEARCH_WP</code> / <code>CUSP_SLOWDOWN_DIST</code> /
+                <code>CUSP_ENTRY_SPEED</code> — 방향이 바뀌는 지점을 미리 찾아 감속</td></tr>
+        <tr><td><b>후진 전용 속도</b></td>
+            <td><code>REV_MAX_SPEED</code> / <code>REV_MIN_SPEED</code> — 후진은 별도 상·하한</td></tr>
+        <tr><td><b>직선 슬루 분리</b></td>
+            <td><code>STEER_STEP_STRAIGHT_DEG = 1.3</code> — 직선에서 조향을 더 단단히 잡는다</td></tr>
+        <tr><td><b>헤딩 정렬 부스트</b></td>
+            <td><code>HEADING_ALIGN_BOOST</code> / <code>HEADING_ALIGN_CTE_REF</code> —
+                도착 구간에서 최종 방향을 맞추는 보강</td></tr>
+        <tr><td><b>ego_state 두절 감시</b></td>
+            <td><code>EGO_STATE_TIMEOUT = 0.5초</code> — 융합 노드가 죽으면 0.5초 안에 감지.
+                주석에 “최고속 1.98 m/s에서도 1 m 이내 정지”</td></tr>
+        <tr><td><b>D항 스케일 변수화</b></td>
+            <td><code>D_TERM_SCALE</code> — 로컬에서 <code>×0.20</code> 하드코딩이던 것이 상수로 분리</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════ 6. 시스템 요약 ══════ -->
+<section>
+  <h2>5 · 시스템 요약 — 문서 5개 함축</h2>
+  <p>
+    지금까지 만든 문서의 핵심을 한 곳에 모았다.
+    <strong>여기 담긴 개념 설명은 두 버전에서 모두 유효하다</strong> — 구조와 원리는 바뀌지 않았다.
+  </p>
+
+  <h3>전체 구조</h3>
+  <div class="eq">[센서]  GPS 5Hz  ·  IMU 20Hz  ·  엔코더
+   ↓
+[융합]  gps_imu.py  →  /ego_state (위치 · 헤딩 ψ · 속도 v)  20Hz
+   ↓
+[제어]  driving.py  →  조향각 · 목표속도                    20Hz
+   ↓
+[구동]  motor.py → 아두이노 100Hz → 서보 · 모터
+   ↓
+[물리]  차가 움직임 → 새 위치 → 다시 센서로</div>
+
+  <h3>핵심 ① — GPS와 IMU는 서로를 필요로 한다</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>고리</th><th>넘어가는 것</th><th>없으면</th></tr></thead>
+      <tbody>
+        <tr><td>IMU → 위치</td><td>헤딩 ψ로 안테나를 0.865 m 뒤로 투영</td>
+            <td>회전 시 위치가 바깥으로 부풀고, DR 적분이 부정확해진다</td></tr>
+        <tr><td>GPS → 헤딩</td><td>두 점의 이동 방향으로 드리프트를 4 %씩 당김</td>
+            <td>자이로 적분 오차가 쌓여 1분에 약 3°씩 틀어진다</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="eq">gps_dir = atan2(Δy, Δx)                    ← GPS 두 점의 방향
+exp_dir = atan2(v·sinψ + ω·d·cosψ,          ← 헤딩이 맞다면 나와야 할 방향
+                v·cosψ − ω·d·sinψ)            (ω·d = 회전 시 안테나 휨 보정)
+
+drift   = exp_dir − gps_dir                  ← 오차값, 목표 0
+yaw_offset −= drift × 0.04                   ← 4 %만 당김</div>
+  <p>
+    <b>왜 4 %인가</b> — 0.96ⁿ = 0.5 → n ≈ 17회, 5 Hz이므로 <b>3.4초</b>.
+    코너(1~2초)보다 느리고 드리프트(수십 초)보다 빠른 자리다.
+    이 구조를 <b>상보 필터</b>라 부른다.
+  </p>
+
+  <h3>핵심 ② — 조향은 두 갈래가 합쳐진다</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th></th><th>Pure Pursuit</th><th>PID</th></tr></thead>
+      <tbody>
+        <tr><td>오차값</td><td>각도 α (앞 목표점)</td><td>거리 CTE (옆으로 벗어남)</td></tr>
+        <tr><td>성격</td><td>기하 — 길 모양대로 그림</td><td>피드백 — 어긋난 것을 지움</td></tr>
+        <tr><td>발산</td><td>불가능 (삼각형 계산)</td><td>가능 (와인드업·과게인)</td></tr>
+        <tr><td>상한</td><td class="n">32.4°</td><td class="n">± 9°</td></tr>
+        <tr><td>실측 출력</td><td class="n">약 15°</td><td class="n">약 1°</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="eq">δ_pp  = atan(2L·sin α / LFD)              L = 0.73 m
+δ_pid = clamp(Kp·e + Ki·∫e + Kd·ė , ±9°)
+δ     = δ_pp + δ_pid                      → 실측 기여 94 : 6</div>
+  <p>
+    <b>±9°의 뜻</b> — 회전반경 4.61 m로, 차량 최소 회전반경(2.01 m)의 2.3배다.
+    즉 <b>급회전 권한은 경로 기하만 갖는다.</b> PID는 발산할 수 있는 부품이므로
+    망가져도 피해가 9°로 한정된다.
+  </p>
+
+  <h3>핵심 ③ — 종방향은 오차가 아니라 계획이다</h3>
+  <div class="tw">
+    <table>
+      <tbody>
+        <tr><td>횡방향 (조향)</td><td><b>피드백</b> — 벗어난 만큼 되돌림</td></tr>
+        <tr><td>종방향 (속도)</td><td><b>피드포워드</b> — 앞 도로 곡률을 미리 보고 계획</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    속도는 “WP까지 몇 m 남았나”로 정하지 않는다. 앞을 0.4 m 간격으로 스캔해
+    필요한 조향각을 구하고, 그에 비례해 미리 줄인다.
+    다가올 코너는 <code>v = √(v₀² + 2as)</code>로 제동거리를 역산한다.
+  </p>
+
+  <h3>핵심 ④ — 진동을 막는 장치들</h3>
+  <p>
+    명령→반응 지연이 <b>0.55초</b>이고, 차의 진동 주파수(0.156 Hz)가 제어기 설계
+    고유진동수와 정확히 일치했다. 지연이 그 주파수의 감쇠를 지워버린 것이다.
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>장치</th><th>막는 것</th><th>값</th></tr></thead>
+      <tbody>
+        <tr><td>상태예측</td><td>지연 → 왕복 진동</td><td class="n">τ = 0.50 s</td></tr>
+        <tr><td>지연보상 lead</td><td>비스듬할 때 늦게 반응</td><td class="n">L × 1.2</td></tr>
+        <tr><td>적분 안정화 5중</td><td>와인드업</td><td class="n">×0.35 / ×0.80 / ±6.0</td></tr>
+        <tr><td>CTE 저역통과</td><td>GPS 계단 · D항 펄스</td><td class="n">α = 0.80</td></tr>
+        <tr><td>D항 저역통과</td><td>미분의 20배 잡음 증폭</td><td class="n">α = 0.16 · ×0.20</td></tr>
+        <tr><td>조향 슬루</td><td>서보가 못 따라올 명령</td><td class="n">직선 1.3 / 코너 2.5~3.5 °/틱</td></tr>
+        <tr><td>게인·트림 보정</td><td>물리적 쏠림·부족조향</td><td class="n">(δ+1.5) ÷ 0.85</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    상태예측 실측 효과 — OFF: 최대 CTE 0.64 m, 왕복 21.8회/분 →
+    ON: <b>0.16 m, 0회</b> (평균속도 −11 %)
+  </p>
+
+  <h3>핵심 ⑤ — 되먹임은 하나뿐</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>피드백</th><th>실제로 오나</th></tr></thead>
+      <tbody>
+        <tr><td>엔코더 (속도)</td><td><b>예</b> — <code>/encoder</code></td></tr>
+        <tr><td>조향각</td><td><b>아니오</b> — 센서 없음</td></tr>
+        <tr><td>IMU 요레이트</td><td><b>예</b> — 조향의 <b>결과</b>를 측정</td></tr>
+        <tr><td>위치 · 헤딩</td><td><b>예</b> — 융합 결과</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    조향각을 재는 센서가 없으므로 <b>게인·트림 보정은 개루프</b>다.
+    실험(로스백 분석)으로만 값을 구할 수 있고, 차가 바뀌면 재측정해야 한다.
+  </p>
+
+  <h3>차량 제원</h3>
+  <div class="tw">
+    <table>
+      <tbody>
+        <tr><td>휠베이스 L</td><td class="n">0.73 m</td>
+            <td>최소 회전반경</td><td class="n">2.01 m</td></tr>
+        <tr><td>조향 한계</td><td class="n">± 20°</td>
+            <td>바퀴 지름</td><td class="n">27 cm</td></tr>
+        <tr><td>엔코더</td><td class="n">300 tick/rev</td>
+            <td>속도 분해능</td><td class="n">0.283 m/s</td></tr>
+        <tr><td>안테나→뒷차축</td><td class="n">0.865 m</td>
+            <td>운용 최고속</td><td class="n">1.8 m/s</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    패키지에 “1/5”이라는 표기는 없다. 이 제원이 1/5 스케일 규격에 부합한다는 추론이다.
+  </p>
+</section>
+
+<!-- ══════ 7. 남은 일 ══════ -->
+<section>
+  <h2>6 · 남은 확인 사항</h2>
+  <ul class="t">
+    <li><b style="color:var(--ok)">✔ 완료 — 본선 확정</b> · GitHub <code>white_ws</code>로 확정.</li>
+    <li><b style="color:var(--ok)">✔ 완료 — 코드 리더 재빌드</b> · GitHub 소스 8개 파일,
+        앵커 기반 구역 25개, 용어 59개. 7장의 🐙 링크.</li>
+    <li><b>해설서·블록선도 갱신</b> — 개념 설명은 그대로 유효하나, lead 활성·속도 파라미터화·
+        전환점 감속 세 항목은 아직 반영되지 않았다.</li>
+    <li><b>Cusp · 후진 · 조향 속도캡</b> — GitHub 신규 기능이라 아직 문서화되지 않았다.</li>
+    <li><b>우회전 게인 0.82</b> — 양쪽 코드 모두 동일하며, 주석의
+        “제어 언더스티어인지 안테나 투영 측정편향인지 단정 불가”는 여전히 미확정이다.</li>
+    <li><b>GPS 품질 등급의 주행 반영</b> — 판별은 구현됐으나 등급별 속도·필터 정책은 아직 없다.</li>
+  </ul>
+
+  <div class="good">
+    <b>가장 중요한 결론.</b><br>
+    보고서(hwpx)는 <b>GitHub 최신본을 정확히 기술하고 있었다.</b>
+    실제 수정이 필요한 것은 헤딩 보정 공백과 CTE 저역통과 서술, <b>단 2건</b>이다.
+  </div>
+</section>
+
+<!-- ══════ 8. 링크 ══════ -->
+<section>
+  <h2>7 · 앞서 만든 문서</h2>
+  <p class="note">
+    <b>🐙 표시가 GitHub 본선 기준</b>이다. 나머지는 로컬 사본 기준이라
+    개념 설명은 유효하지만 lead·감속캡·직선 슬루·속도 상한 네 항목은 이 리포트 2·3장을 따라야 한다.
+  </p>
+  <div class="links">
+    <a class="lk" href="https://claude.ai/code/artifact/af63aa3f-3d51-4373-8812-3fdbc6a93afc"
+       style="border-color:var(--ok);border-width:2px">
+      <b>🐙 코드 리더 · GitHub 본선</b>
+      <span>재빌드 완료. 소스 원문 + 이름 클릭 · 드래그 설명</span><em>열기 →</em></a>
+    <a class="lk" href="https://claude.ai/code/artifact/e170ecf4-3d65-4dec-a1ed-70f33bc3c3a6">
+      <b>🔍 코드 리더 · 로컬(구)</b><span>카메라 융합 포함 버전 — 참고용</span><em>열기 →</em></a>
+    <a class="lk" href="https://claude.ai/code/artifact/c8e7f9d0-aeea-4cf3-92bc-fdb9b6b6977c">
+      <b>📖 해설서</b><span>개념 중심 22개 항목 + 용어 팝업</span><em>열기 →</em></a>
+    <a class="lk" href="https://claude.ai/code/artifact/176ee49f-ec8c-47d8-a8a1-cb098e49e390">
+      <b>🗺️ 아키텍처</b><span>노드·토픽 흐름도</span><em>열기 →</em></a>
+    <a class="lk" href="https://claude.ai/code/artifact/1ca585a3-5bc9-409f-9601-835223f60dda">
+      <b>🛰️ GPS·IMU 융합</b><span>상호 결합 블록선도</span><em>열기 →</em></a>
+    <a class="lk" href="https://claude.ai/code/artifact/3ac4b9c9-ffca-4407-a557-444702a411d2">
+      <b>🎛️ 조향 폐루프</b><span>블록 16개 클릭</span><em>열기 →</em></a>
+  </div>
+</section>
+
+<footer>
+  본선 — GitHub dododohyeon614-cloud/white_ws @ bae094d (2026-08-27) · 8개 파일 5,169줄 ·
+  코드 리더 재빌드 완료 (앵커 25/25 해석 성공)
+</footer>
+
+</div>
+
+</body>
+</html>

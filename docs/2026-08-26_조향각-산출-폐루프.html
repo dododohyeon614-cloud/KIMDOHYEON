@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>조향각 산출 폐루프</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:  #EBEFF2;
+    --surface: #FFFFFF;
+    --sunken:  #E2E8EC;
+    --ink:     #16212B;
+    --muted:   #556775;
+    --faint:   #7C8D9A;
+    --line:    #C7D3DB;
+    --hair:    #DCE4E9;
+    --err:     #0E6C8B;
+    --err-bg:  #DCEDF3;
+    --geo:     #8C3866;
+    --geo-bg:  #F3E0EA;
+    --guard:   #925D00;
+    --guard-bg:#F6E9D2;
+    --plant:   #1F6B4A;
+    --plant-bg:#DDEBE3;
+    --sel:     #16212B;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:  #0F151B;
+      --surface: #18212A;
+      --sunken:  #131C24;
+      --ink:     #DFE7EC;
+      --muted:   #96A7B4;
+      --faint:   #748896;
+      --line:    #2E3D49;
+      --hair:    #253240;
+      --err:     #4CB2D0;
+      --err-bg:  #10333F;
+      --geo:     #DE8AB3;
+      --geo-bg:  #3A1F2E;
+      --guard:   #E0A63A;
+      --guard-bg:#352913;
+      --plant:   #56B98B;
+      --plant-bg:#12301F;
+      --sel:     #DFE7EC;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:  #0F151B;
+    --surface: #18212A;
+    --sunken:  #131C24;
+    --ink:     #DFE7EC;
+    --muted:   #96A7B4;
+    --faint:   #748896;
+    --line:    #2E3D49;
+    --hair:    #253240;
+    --err:     #4CB2D0;
+    --err-bg:  #10333F;
+    --geo:     #DE8AB3;
+    --geo-bg:  #3A1F2E;
+    --guard:   #E0A63A;
+    --guard-bg:#352913;
+    --plant:   #56B98B;
+    --plant-bg:#12301F;
+    --sel:     #DFE7EC;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans KR", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 78rem; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
+
+  header.mast { display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 2.5rem; }
+  .rule { height: 3px; width: 3.5rem; background: var(--ink); }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint);
+  }
+  h1 {
+    font-family: "Gothic A1", sans-serif; font-weight: 800;
+    font-size: clamp(1.9rem, 5vw, 2.7rem); line-height: 1.15;
+    letter-spacing: -0.02em; margin: 0; text-wrap: balance;
+  }
+  .standfirst { color: var(--muted); margin: 0; max-width: 40rem; font-size: 1.02rem; }
+
+  .hint {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-family: "IBM Plex Mono", monospace; font-size: 0.74rem;
+    letter-spacing: 0.06em; color: var(--err);
+    border: 1px dashed var(--err); padding: 0.35rem 0.7rem; align-self: flex-start;
+  }
+
+  /* legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 1.1rem; margin-bottom: 1.25rem; }
+  .lg { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--muted); }
+  .sw { width: 14px; height: 14px; border: 1.5px solid; flex: none; }
+  .sw-err   { background: var(--err-bg);   border-color: var(--err); }
+  .sw-geo   { background: var(--geo-bg);   border-color: var(--geo); }
+  .sw-guard { background: var(--guard-bg); border-color: var(--guard); }
+  .sw-plant { background: var(--plant-bg); border-color: var(--plant); }
+
+  /* two-pane */
+  .pane { display: grid; grid-template-columns: minmax(0,1.05fr) minmax(0,1fr); gap: 1.5rem; align-items: start; }
+  @media (max-width: 900px) { .pane { grid-template-columns: 1fr; } }
+
+  .diagram {
+    background: var(--surface); border: 1px solid var(--line);
+    padding: 1rem 0.75rem; overflow-x: auto;
+  }
+  .diagram svg { display: block; width: 100%; min-width: 560px; height: auto; }
+
+  /* svg node styling */
+  .node { cursor: pointer; }
+  .node rect { transition: none; }
+  .node:hover rect.hit, .node:focus-visible rect.hit { stroke-width: 3; }
+  .node:focus-visible { outline: none; }
+  .node:focus-visible rect.hit { stroke: var(--sel); stroke-width: 3; }
+  .node.on rect.hit { stroke: var(--sel); stroke-width: 3.5; }
+  .node.on text.nt { font-weight: 700; }
+
+  .bx-err   { fill: var(--err-bg);   stroke: var(--err);   stroke-width: 1.6; }
+  .bx-geo   { fill: var(--geo-bg);   stroke: var(--geo);   stroke-width: 1.6; }
+  .bx-guard { fill: var(--guard-bg); stroke: var(--guard); stroke-width: 1.6; }
+  .bx-plant { fill: var(--plant-bg); stroke: var(--plant); stroke-width: 1.6; }
+  .bx-n     { fill: var(--surface);  stroke: var(--line);  stroke-width: 1.6; }
+
+  .nt  { font-family: "IBM Plex Sans KR", sans-serif; font-size: 14px; font-weight: 500; fill: var(--ink); pointer-events: none; }
+  .nm  { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; fill: var(--muted); pointer-events: none; }
+  .nl  { font-family: "IBM Plex Mono", monospace; font-size: 10px; fill: var(--faint); }
+  .ln  { stroke: var(--ink); stroke-width: 1.7; fill: none; }
+  .ln-fb { stroke: var(--plant); stroke-width: 2; fill: none; stroke-dasharray: 6 4; }
+
+  /* panel */
+  .panel {
+    position: sticky; top: 1.25rem;
+    background: var(--surface); border: 1px solid var(--line);
+    padding: 1.5rem 1.6rem; display: flex; flex-direction: column; gap: 1.1rem;
+    max-height: calc(100vh - 2.5rem); overflow-y: auto;
+  }
+  @media (max-width: 900px) { .panel { position: static; max-height: none; } }
+
+  .p-kicker {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.66rem;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    align-self: flex-start; padding: 0.2rem 0.55rem; border: 1px solid currentColor;
+  }
+  .k-err{color:var(--err);} .k-geo{color:var(--geo);}
+  .k-guard{color:var(--guard);} .k-plant{color:var(--plant);} .k-n{color:var(--faint);}
+
+  .p-title { font-family: "Gothic A1", sans-serif; font-weight: 800; font-size: 1.4rem; margin: 0; line-height: 1.25; }
+  .p-lede { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+  .blk { display: flex; flex-direction: column; gap: 0.4rem; }
+  .blk-h {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.66rem;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint);
+    border-bottom: 1px solid var(--hair); padding-bottom: 0.3rem;
+  }
+  .blk p, .blk ul { margin: 0; font-size: 0.92rem; }
+  .blk ul { padding-left: 1.05rem; display: flex; flex-direction: column; gap: 0.3rem; }
+
+  .eq {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.84rem;
+    background: var(--sunken); padding: 0.7rem 0.85rem;
+    overflow-x: auto; white-space: pre; line-height: 1.6; color: var(--ink);
+  }
+  code {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.85em;
+    background: var(--sunken); padding: 0.08em 0.36em; color: var(--muted);
+  }
+  .src { font-family: "IBM Plex Mono", monospace; font-size: 0.74rem; color: var(--faint); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.4rem 0.55rem; border-bottom: 1px solid var(--hair); vertical-align: top; }
+  th { font-family: "IBM Plex Mono", monospace; font-size: 0.64rem; letter-spacing: 0.1em;
+       text-transform: uppercase; color: var(--faint); font-weight: 500; white-space: nowrap; }
+  td.n { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+
+  .flag {
+    border-left: 3px solid var(--guard); background: var(--guard-bg);
+    padding: 0.7rem 0.9rem; font-size: 0.88rem;
+  }
+  .flag b { color: var(--guard); }
+
+  .nav { display: flex; gap: 0.5rem; padding-top: 0.3rem; }
+  .nav button {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.74rem;
+    background: var(--surface); color: var(--muted);
+    border: 1px solid var(--line); padding: 0.35rem 0.7rem; cursor: pointer;
+  }
+  .nav button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
+  .nav button:disabled { opacity: 0.35; cursor: default; }
+  .nav button:focus-visible { outline: 2px solid var(--err); outline-offset: 2px; }
+
+  footer { margin-top: 3rem; border-top: 1px solid var(--line); padding-top: 1rem;
+           font-family: "IBM Plex Mono", monospace; font-size: 0.76rem; color: var(--faint); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="rule"></div>
+    <div class="eyebrow">white 패키지 · driving.py v6.7.3 · 20 Hz 루프</div>
+    <h1>조향각 산출 폐루프</h1>
+    <p class="standfirst">
+      0.05초마다 한 바퀴 도는 제어 루프 전체. 각 블록이 <em>무엇을 오차로 삼고</em>,
+      <em>왜 그렇게 고치며</em>, 다음 루프로 무엇을 넘기는지를 담았다.
+    </p>
+    <span class="hint">블록을 클릭하면 그 블록의 상세가 열립니다</span>
+  </header>
+
+  <div class="legend">
+    <span class="lg"><span class="sw sw-err"></span>오차 계통 — 벗어난 거리로 되돌림</span>
+    <span class="lg"><span class="sw sw-geo"></span>기하 계통 — 길 모양대로 그림</span>
+    <span class="lg"><span class="sw sw-guard"></span>안전장치 — 값을 잘라내고 늦춤</span>
+    <span class="lg"><span class="sw sw-plant"></span>물리 — 차가 실제로 하는 일</span>
+  </div>
+
+  <div class="pane">
+
+    <!-- ============ DIAGRAM ============ -->
+    <div class="diagram">
+      <svg viewBox="0 0 880 1200" role="img"
+           aria-label="조향각 산출 폐루프 블록선도. 입력에서 상태예측과 WP 탐색을 거쳐 왼쪽 오차 계통과 오른쪽 기하 계통으로 갈라진 뒤, 합산되어 안전장치들을 통과해 차량으로 나가고 다시 새로운 오차로 돌아온다.">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"></path>
+          </marker>
+        </defs>
+
+        <!-- ---- spine top ---- -->
+        <g class="node" data-id="input" tabindex="0" role="button" aria-label="입력 ego_state">
+          <rect class="bx-n hit" x="190" y="24" width="500" height="52" rx="2"></rect>
+          <text class="nt" x="440" y="46" text-anchor="middle">입력 · /ego_state</text>
+          <text class="nm" x="440" y="64" text-anchor="middle">위치 · 헤딩 ψ · 속도 v</text>
+        </g>
+
+        <g class="node" data-id="predict" tabindex="0" role="button" aria-label="상태예측">
+          <rect class="bx-guard hit" x="190" y="104" width="500" height="52" rx="2"></rect>
+          <text class="nt" x="440" y="126" text-anchor="middle">상태예측 — 0.45초 뒤 자세로 이동</text>
+          <text class="nm" x="440" y="144" text-anchor="middle">지연 0.55 s 상쇄 · IMU ω + 엔코더 v</text>
+        </g>
+
+        <g class="node" data-id="wp" tabindex="0" role="button" aria-label="WP 탐색">
+          <rect class="bx-n hit" x="190" y="184" width="500" height="52" rx="2"></rect>
+          <text class="nt" x="440" y="206" text-anchor="middle">WP 탐색 · 기준점 wp_idx 갱신</text>
+          <text class="nm" x="440" y="224" text-anchor="middle">앞쪽 우선 · 뒤로 가지 않음</text>
+        </g>
+
+        <!-- ---- left: error branch ---- -->
+        <text class="nl" x="230" y="266" text-anchor="middle">오차 계통</text>
+        <g class="node" data-id="cte" tabindex="0" role="button" aria-label="CTE 계산">
+          <rect class="bx-err hit" x="60" y="276" width="340" height="56" rx="2"></rect>
+          <text class="nt" x="230" y="300" text-anchor="middle">CTE 계산 — 옆으로 벗어난 거리</text>
+          <text class="nm" x="230" y="318" text-anchor="middle">선분에 수선의 발 → 좌우 성분</text>
+        </g>
+
+        <g class="node" data-id="ctelpf" tabindex="0" role="button" aria-label="CTE 저역통과">
+          <rect class="bx-guard hit" x="60" y="364" width="340" height="56" rx="2"></rect>
+          <text class="nt" x="230" y="388" text-anchor="middle">CTE 저역통과 α = 0.80</text>
+          <text class="nm" x="230" y="406" text-anchor="middle">GPS 계단 모서리 깎기</text>
+        </g>
+
+        <g class="node" data-id="pid" tabindex="0" role="button" aria-label="PID 3항">
+          <rect class="bx-err hit" x="60" y="452" width="340" height="56" rx="2"></rect>
+          <text class="nt" x="230" y="476" text-anchor="middle">PID 3항</text>
+          <text class="nm" x="230" y="494" text-anchor="middle">Kp·e + Ki·∫e + Kd·ė ×0.20</text>
+        </g>
+
+        <g class="node" data-id="integ" tabindex="0" role="button" aria-label="적분 안정화">
+          <rect class="bx-guard hit" x="60" y="516" width="340" height="46" rx="2"></rect>
+          <text class="nt" x="230" y="538" text-anchor="middle">적분 안정화 5중</text>
+          <text class="nm" x="230" y="554" text-anchor="middle">×0.35 · ×0.80 · ±6.0 · ×0.85 · 리셋</text>
+        </g>
+
+        <g class="node" data-id="clamp9" tabindex="0" role="button" aria-label="PID 9도 클램프">
+          <rect class="bx-guard hit" x="60" y="594" width="340" height="48" rx="2"></rect>
+          <text class="nt" x="230" y="616" text-anchor="middle">PID 상한 ± 9°</text>
+          <text class="nm" x="230" y="633" text-anchor="middle">회전반경 4.61 m — 급회전 금지</text>
+        </g>
+
+        <!-- ---- right: geometry branch ---- -->
+        <text class="nl" x="650" y="266" text-anchor="middle">기하 계통</text>
+        <g class="node" data-id="curve" tabindex="0" role="button" aria-label="곡률 스캔">
+          <rect class="bx-geo hit" x="480" y="276" width="340" height="56" rx="2"></rect>
+          <text class="nt" x="650" y="300" text-anchor="middle">곡률 스캔 — 앞 길이 얼마나 급한가</text>
+          <text class="nm" x="650" y="318" text-anchor="middle">3 m 창 + Menger 외접원 1.2 m</text>
+        </g>
+
+        <g class="node" data-id="lfd" tabindex="0" role="button" aria-label="LFD 결정">
+          <rect class="bx-geo hit" x="480" y="364" width="340" height="56" rx="2"></rect>
+          <text class="nt" x="650" y="388" text-anchor="middle">LFD — 얼마나 멀리 볼까</text>
+          <text class="nm" x="650" y="406" text-anchor="middle">min(속도표, √1.5R) · 2.3~4.0 m</text>
+        </g>
+
+        <g class="node" data-id="pp" tabindex="0" role="button" aria-label="Pure Pursuit">
+          <rect class="bx-geo hit" x="480" y="452" width="340" height="56" rx="2"></rect>
+          <text class="nt" x="650" y="476" text-anchor="middle">Pure Pursuit — 각도 α로 조향</text>
+          <text class="nm" x="650" y="494" text-anchor="middle">δ = atan(2L·sinα / LFD)</text>
+        </g>
+
+        <!-- ---- summing ---- -->
+        <circle cx="440" cy="700" r="17" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"></circle>
+        <text class="nt" x="440" y="706" text-anchor="middle" font-size="17">+</text>
+        <text class="nl" x="440" y="672" text-anchor="middle">단순 덧셈</text>
+
+        <!-- ---- spine bottom ---- -->
+        <g class="node" data-id="jitter" tabindex="0" role="button" aria-label="잔떨림 억제">
+          <rect class="bx-guard hit" x="190" y="756" width="500" height="52" rx="2"></rect>
+          <text class="nt" x="440" y="778" text-anchor="middle">직선 잔떨림 억제</text>
+          <text class="nm" x="440" y="796" text-anchor="middle">|CTE| &lt; 0.08 m 이고 |δ| &lt; 3° 이면 죽임</text>
+        </g>
+
+        <g class="node" data-id="slew" tabindex="0" role="button" aria-label="평활과 슬루 제한">
+          <rect class="bx-guard hit" x="190" y="836" width="500" height="52" rx="2"></rect>
+          <text class="nt" x="440" y="858" text-anchor="middle">평활 + 슬루 제한</text>
+          <text class="nm" x="440" y="876" text-anchor="middle">0.5 : 0.5 섞기 · 한 틱 2.5~3.5°까지</text>
+        </g>
+
+        <g class="node" data-id="clamp20" tabindex="0" role="button" aria-label="20도 클램프와 저속 권한">
+          <rect class="bx-guard hit" x="190" y="916" width="500" height="52" rx="2"></rect>
+          <text class="nt" x="440" y="938" text-anchor="middle">± 20° 클램프 + 저속 권한</text>
+          <text class="nm" x="440" y="956" text-anchor="middle">느리면 조향 약화 ×0.15~1.0</text>
+        </g>
+
+        <g class="node" data-id="gain" tabindex="0" role="button" aria-label="게인 트림 보정">
+          <rect class="bx-guard hit" x="190" y="996" width="500" height="52" rx="2"></rect>
+          <text class="nt" x="440" y="1018" text-anchor="middle">게인 · 트림 보정 (개루프)</text>
+          <text class="nm" x="440" y="1036" text-anchor="middle">δ_pub = (δ + 1.5°) ÷ 0.85</text>
+        </g>
+
+        <g class="node" data-id="plant" tabindex="0" role="button" aria-label="차량 물리">
+          <rect class="bx-plant hit" x="190" y="1076" width="500" height="56" rx="2"></rect>
+          <text class="nt" x="440" y="1100" text-anchor="middle">차량 — 아두이노 → 서보 → 바퀴</text>
+          <text class="nm" x="440" y="1118" text-anchor="middle">ψ̇ = v·tanδ / L × 0.85</text>
+        </g>
+
+        <!-- ---- arrows ---- -->
+        <path class="ln" d="M440,76 L440,104" marker-end="url(#a)"></path>
+        <path class="ln" d="M440,156 L440,184" marker-end="url(#a)"></path>
+        <path class="ln" d="M440,236 L440,256 L230,256 L230,276" marker-end="url(#a)"></path>
+        <path class="ln" d="M440,236 L440,256 L650,256 L650,276" marker-end="url(#a)"></path>
+        <path class="ln" d="M230,332 L230,364" marker-end="url(#a)"></path>
+        <path class="ln" d="M650,332 L650,364" marker-end="url(#a)"></path>
+        <path class="ln" d="M230,420 L230,452" marker-end="url(#a)"></path>
+        <path class="ln" d="M650,420 L650,452" marker-end="url(#a)"></path>
+        <path class="ln" d="M230,562 L230,594" marker-end="url(#a)"></path>
+        <path class="ln" d="M230,642 L230,700 L423,700" marker-end="url(#a)"></path>
+        <path class="ln" d="M650,508 L650,700 L457,700" marker-end="url(#a)"></path>
+        <path class="ln" d="M440,717 L440,756" marker-end="url(#a)"></path>
+        <path class="ln" d="M440,808 L440,836" marker-end="url(#a)"></path>
+        <path class="ln" d="M440,888 L440,916" marker-end="url(#a)"></path>
+        <path class="ln" d="M440,968 L440,996" marker-end="url(#a)"></path>
+        <path class="ln" d="M440,1048 L440,1076" marker-end="url(#a)"></path>
+
+        <!-- feedback -->
+        <path class="ln-fb" d="M690,1104 L852,1104 L852,50 L690,50" marker-end="url(#a)"></path>
+        <text class="nl" x="866" y="600" text-anchor="middle" transform="rotate(-90 866 600)"
+              fill="var(--plant)">새 위치 → 새 CTE · 0.05초 뒤</text>
+
+        <!-- branch labels on arrows -->
+        <text class="nl" x="243" y="694" text-anchor="start">δ_pid</text>
+        <text class="nl" x="637" y="694" text-anchor="end">δ_pp</text>
+      </svg>
+    </div>
+
+    <!-- ============ PANEL ============ -->
+    <aside class="panel" id="panel" aria-live="polite"></aside>
+
+  </div>
+
+  <footer>
+    출처 — src/white/white/driving.py (v6.7.3) · motor.py · gps_imu.py (v5.7.1)
+  </footer>
+</div>
+
+<script>
+(function () {
+  var D = {
+    intro: {
+      kind: "n", kicker: "시작", title: "0.05초마다 도는 한 바퀴",
+      lede: "왼쪽 블록선도에서 아무 블록이나 클릭하세요. 그 블록이 무엇을 오차로 삼고, 왜 그렇게 고치는지 여기에 나옵니다.",
+      blocks: [
+        { h: "루프의 뼈대", html:
+          "<p>이 루프는 <b>두 갈래</b>로 갈라졌다가 다시 합쳐집니다.</p>" +
+          "<ul>" +
+          "<li><b>오차 계통</b> — “지금 얼마나 틀렸나”를 재서 되돌린다 (PID)</li>" +
+          "<li><b>기하 계통</b> — “어디로 가야 하나”를 보고 길을 그린다 (Pure Pursuit)</li>" +
+          "</ul>" +
+          "<p>둘을 <b>더한 뒤</b>, 안전장치 네 겹을 통과시켜 차로 내보냅니다.</p>" },
+        { h: "왜 두 갈래인가", html:
+          "<p>혼자서는 각각 못 하는 일이 있습니다.</p>" +
+          "<ul>" +
+          "<li>Pure Pursuit 혼자면 — 길과 <b>나란히 30cm 옆으로</b> 계속 갑니다. 각도만 보니까요.</li>" +
+          "<li>PID 혼자면 — 앞을 못 봐서 코너에 <b>들어가고 나서야</b> 반응합니다.</li>" +
+          "</ul>" },
+        { h: "기여 비율", html:
+          "<table><tr><th>계통</th><th>보통 출력</th><th>상한</th></tr>" +
+          "<tr><td>Pure Pursuit</td><td class='n'>약 15°</td><td class='n'>32.4°</td></tr>" +
+          "<tr><td>PID</td><td class='n'>약 1°</td><td class='n'>9°</td></tr></table>" +
+          "<p>실측 기여 비율 <b>94 : 6</b> — 주도권은 기하 쪽에 있습니다.</p>" }
+      ]
+    },
+
+    input: {
+      kind: "n", kicker: "입력", title: "/ego_state — 내 상태 세 가지",
+      lede: "gps_imu.py가 20Hz로 만들어 보내는 값. 이 루프의 모든 계산이 여기서 출발합니다.",
+      blocks: [
+        { h: "무엇이 들어오나", html:
+          "<table><tr><th>값</th><th>출처</th></tr>" +
+          "<tr><td>위치 (위도·경도)</td><td>GPS + IMU 융합, 뒷차축으로 투영</td></tr>" +
+          "<tr><td>헤딩 ψ</td><td>IMU 적분 + GPS로 4%씩 보정</td></tr>" +
+          "<tr><td>속도 v</td><td>엔코더</td></tr></table>" },
+        { h: "꼭 알아야 할 것", html:
+          "<p>위치는 <b>GPS가 5Hz</b>라 20Hz 루프에서는 <b>같은 값이 4번 반복</b>됩니다. 계단 모양이죠.</p>" +
+          "<div class='eq'>시각   0.00  0.05  0.10  0.15  0.20\n위치    A     A     A     A     B</div>" +
+          "<p>사이를 보간하지 않습니다. 이 계단이 뒤의 <b>CTE 저역통과</b>가 필요한 이유입니다.</p>" },
+        { h: "예외", html:
+          "<p>GPS가 1.5초 끊기면 <b>DR 모드</b>로 바뀌고, 그때는 엔코더+자이로로 위치를 실제로 적분해 나아갑니다.</p>" }
+      ],
+      src: "gps_imu.py:1118-1128 · driving.py:640-666"
+    },
+
+    predict: {
+      kind: "guard", kicker: "안전장치", title: "상태예측 — 0.45초 뒤로 시계를 돌린다",
+      lede: "오차를 만들기 전에, 기준이 되는 “내 자세”를 미래로 옮깁니다. 이 루프에서 가장 중요한 장치입니다.",
+      blocks: [
+        { h: "무엇이 오차인가", html:
+          "<p><b>여기서는 오차를 만들지 않습니다.</b> 오차를 잴 <b>기준점</b>을 옮길 뿐입니다.</p>" },
+        { h: "왜 필요한가", html:
+          "<p>명령을 내려도 차는 <b>0.55초 뒤에</b> 반응합니다.</p>" +
+          "<table><tr><td>서보가 실제로 움직이는 시간</td><td class='n'>0.45 s</td></tr>" +
+          "<tr><td>GPS·파이프라인 통과</td><td class='n'>0.10 s</td></tr></table>" +
+          "<p>늦게 반응하는 것을 보이는 대로 조작하면 <b>반드시 왕복</b>합니다. 샤워기 온도를 맞출 때 뜨거웠다 차가웠다 하는 것과 같습니다.</p>" +
+          "<p>실측: 차의 진동 0.156 Hz = 제어기 설계 진동수와 <b>정확히 일치</b>. 지연이 그 주파수의 감쇠를 지워버린 것입니다.</p>" },
+        { h: "어떻게 하나", html:
+          "<div class='eq'>ω  = IMU 요레이트 (지금 도는 속도)\nΔψ = ω × 0.45초\nx' = x + (v × 0.45) · cos(ψ + Δψ/2)\ny' = y + (v × 0.45) · sin(ψ + Δψ/2)</div>" +
+          "<p><code>ψ + Δψ/2</code> — 출발 방향도 도착 방향도 아닌 <b>중간 방향</b>을 씁니다. 곡선을 갈 때 평균 방향이 중간값이기 때문입니다.</p>" +
+          "<p>이 예측 좌표가 <b>CTE·WP탐색·Pure Pursuit 전부</b>에 쓰입니다. 일부만 적용하면 채널마다 시차가 생깁니다.</p>" },
+        { h: "안전장치", html:
+          "<ul><li>예측 각도 <b>±34°</b> 상한 — 스핀 시 폭주 방지</li>" +
+          "<li>IMU가 <b>0.4초</b> 이상 끊기면 예측 불신 → 직전 조향으로 대체</li>" +
+          "<li>IMU 없으면 ω_n 상한 0.95 → <b>0.80</b>으로 낮춰 속도까지 보수화</li></ul>" },
+        { h: "효과 (실측)", html:
+          "<table><tr><th></th><th>최대 CTE</th><th>왕복/분</th><th>속도</th></tr>" +
+          "<tr><td>OFF</td><td class='n'>0.64 m</td><td class='n'>21.8</td><td class='n'>1.97</td></tr>" +
+          "<tr><td>ON</td><td class='n'>0.16 m</td><td class='n'>0</td><td class='n'>1.75</td></tr></table>" +
+          "<p>속도 11%를 내주고 진동을 완전히 없앴습니다.</p>" },
+        { flag: "τ를 0.65초로 키웠더니 <b>역효과</b>가 확인됐습니다. 너무 멀리 보면 없는 미래를 보고 미리 꺾습니다. 코드 주석이 <b>0.30~0.50 유지</b>를 명시합니다." }
+      ],
+      src: "driving.py:1088-1106 · 상수 :392-394"
+    },
+
+    wp: {
+      kind: "n", kicker: "기준 잡기", title: "WP 탐색 — 경로의 어디를 볼 것인가",
+      lede: "저장된 480여 개 웨이포인트 중 “지금 기준이 되는 점”을 정합니다.",
+      blocks: [
+        { h: "왜 필요한가", html:
+          "<ul><li><b>속도</b> — 20Hz로 도는데 매번 485개를 다 계산할 수 없습니다.</li>" +
+          "<li><b>오인 방지</b> — 8자 코스처럼 경로가 자기 자신과 가까워지는 곳에서 <b>엉뚱한 먼 구간</b>을 가장 가깝다고 착각하는 것을 막습니다.</li></ul>" },
+        { h: "어떻게 고르나", html:
+          "<p>현재 <code>wp_idx</code> 주변만 검색합니다. 그중 <b>내 앞쪽에 있으면서 가장 가까운</b> 점을 고릅니다.</p>" +
+          "<div class='eq'>lx = 앞뒤 성분   (양수면 내 앞)\nd  = 직선거리\n→ lx > -2.0 이면서 d 최소인 것</div>" },
+        { h: "두 가지 규칙", html:
+          "<ul><li><b>뒤로 가지 않음</b> — 새 인덱스는 항상 이전 이상. 경로를 되감지 않습니다.</li>" +
+          "<li><b>한 번에 많이 못 감</b> — 한 루프에 건너뛸 수 있는 칸 수에 상한이 있습니다.</li></ul>" },
+        { h: "예외 상황", html:
+          "<table><tr><th>상황</th><th>대응</th></tr>" +
+          "<tr><td>출발 직후</td><td>검색창 120칸으로 확대</td></tr>" +
+          "<tr><td>GPS 1m 이상 점프</td><td>4사이클 동안 창 70칸 확대</td></tr>" +
+          "<tr><td>GPS 블렌딩 종료</td><td>6사이클 재동기화</td></tr></table>" }
+      ],
+      src: "driving.py:1119-1144"
+    },
+
+    cte: {
+      kind: "err", kicker: "오차 계통", title: "CTE — 옆으로 얼마나 벗어났나",
+      lede: "이 루프의 주된 오차값. 목표는 언제나 0 m 입니다.",
+      blocks: [
+        { h: "무엇이 오차인가", html:
+          "<p>경로에서 <b>수직으로 벗어난 거리</b>입니다. 앞뒤 거리는 보지 않습니다.</p>" +
+          "<div class='eq'>CTE = −P_x·sin(ψ) + P_y·cos(ψ)   [m]\n\n부호  + : 경로가 내 왼쪽 (내가 오른쪽으로 벗어남)\n      − : 경로가 내 오른쪽</div>" +
+          "<p>이 식은 <b>회전변환</b>입니다. 지구 좌표(동/북)를 차 기준(앞/옆)으로 돌린 뒤 <b>옆 성분만</b> 꺼냅니다.</p>" },
+        { h: "왜 점이 아니라 선분인가", html:
+          "<p>WP는 점이지만, CTE는 <b>점과 점을 이은 선분</b>에 수선을 내려 잽니다.</p>" +
+          "<div class='eq'>t = clamp( −(x₀·vx + y₀·vy) / (vx²+vy²), 0, 1 )\nP = (x₀ + t·vx , y₀ + t·vy)</div>" +
+          "<p>점까지 거리를 재면 WP 사이에서 값이 <b>톱니처럼</b> 튑니다. 선분에 내린 수선은 매끄럽습니다. (<code>t</code>를 0~1로 자르는 것은 선분 밖으로 나가지 않게 하려는 것)</p>" },
+        { h: "종방향은 어디로?", html:
+          "<p>앞뒤 오차는 <b>조향에 쓰지 않습니다.</b> 대신 속도 쪽에서 다룹니다 — 그것도 “거리 오차”가 아니라 <b>앞 도로 곡률로 미리 계획</b>하는 방식입니다.</p>" +
+          "<table><tr><td>횡방향</td><td>피드백 (벗어난 만큼 되돌림)</td></tr>" +
+          "<tr><td>종방향</td><td>피드포워드 (앞을 보고 미리 정함)</td></tr></table>" },
+        { h: "CTE가 커지면", html:
+          "<p>조향만으로 안 되면 <b>속도를 줄여</b> 복귀할 시간을 법니다.</p>" +
+          "<table><tr><th>|CTE|</th><th>속도 상한</th></tr>" +
+          "<tr><td class='n'>0.38 m ↑</td><td>캡 시작</td></tr>" +
+          "<tr><td class='n'>0.48 m ↑</td><td class='n'>2.2 m/s</td></tr>" +
+          "<tr><td class='n'>0.62 m ↑</td><td class='n'>1.7 m/s</td></tr>" +
+          "<tr><td class='n'>0.80 m ↑</td><td class='n'>1.2 m/s</td></tr></table>" },
+        { flag: "이 캡은 <b>절대값</b>으로 코드에 박혀 있습니다(비율 아님). <code>max_speed_ms</code>를 바꾸면 감속 정책의 상대 강도가 달라집니다." }
+      ],
+      src: "driving.py:929-957 · 캡 :380-382"
+    },
+
+    ctelpf: {
+      kind: "guard", kicker: "안전장치", title: "CTE 저역통과 — 계단 모서리 깎기",
+      lede: "흔히 “잡음 제거”라고 하지만, 실제로는 그 역할이 거의 없습니다. 진짜 일은 따로 있습니다.",
+      blocks: [
+        { h: "얼마나 강한 필터인가", html:
+          "<div class='eq'>cte_lpf += 0.80 × (cte_raw − cte_lpf)\n\nα = 0.80  →  τ ≈ 0.013 초\n차단주파수 ≈ 12.7 Hz</div>" +
+          "<p>새 값을 <b>80%나 반영</b>합니다. 차단이 12.7Hz면 GPS(5Hz)보다 훨씬 높아서 <b>잡음 필터로는 사실상 무의미</b>합니다.</p>" },
+        { h: "그럼 무슨 일을 하나", html:
+          "<ul>" +
+          "<li><b>GPS 계단 완충</b> — 5Hz 위치가 20Hz로 반복되며 생기는 단차를 2~3틱에 나눠 넘깁니다.</li>" +
+          "<li><b>세그먼트 전환 완충</b> — 다음 선분으로 넘어갈 때 각도가 달라 CTE가 불연속으로 튑니다.</li>" +
+          "<li><b>D항 보호</b> — 아래 참조. 이게 가장 중요합니다.</li></ul>" },
+        { h: "D항을 왜 보호해야 하나", html:
+          "<p>LPF가 없으면 D항이 <b>5Hz로 뾰족하게 펄스</b>칩니다.</p>" +
+          "<div class='eq'>d_cte:      0    0    0   0.04   0    0\nd_per_sec:  0    0    0   0.8    0    0\n                        ↑ 한 틱만 튐</div>" +
+          "<p>조향이 5Hz로 딸꾹질하게 됩니다. LPF가 이 펄스를 3틱에 퍼뜨립니다.</p>" },
+        { h: "왜 하필 이 세기인가", html:
+          "<p>GPS 간격이 0.2초인데 LPF 정착이 <b>0.1~0.15초</b>입니다. 다음 GPS가 오기 <b>직전에</b> 정착을 끝냅니다. 더 느리면 값이 계속 뒤처지고, 더 빠르면 계단이 그대로 남습니다.</p>" },
+        { h: "필터를 건너뛰는 경우", html:
+          "<div class='eq'>if 세그먼트 20칸 점프  or  CTE 6 m 점프:\n    cte_lpf = cte_raw     ← 즉시 대입\n    cte_integral = 0      ← 적분도 리셋\n    d_term_lpf = 0        ← D항도 리셋</div>" +
+          "<p>크게 튄 것은 <b>잡음이 아니라 사건</b>입니다(GPS 복구, 경로 재동기화). 필터로 뭉개면 안 되고 즉시 따라가야 합니다.</p>" },
+        { flag: "보고서에 “CTE LPF가 측정 잡음을 억제한다”고 쓰면 부정확합니다. 잡음 억제는 <b>D항 LPF(α=0.16)</b>와 <b>데드밴드</b>, <b>잔떨림 억제</b>가 담당합니다." }
+      ],
+      src: "driving.py:1234-1243"
+    },
+
+    pid: {
+      kind: "err", kicker: "오차 계통", title: "PID 3항 — 서로 다른 시제를 본다",
+      lede: "같은 CTE를 두고 세 항이 각각 과거·현재·미래를 봅니다. 그리고 입력도 서로 다릅니다.",
+      blocks: [
+        { h: "세 항의 역할", html:
+          "<table><tr><th>항</th><th>보는 것</th><th>사람 말로</th></tr>" +
+          "<tr><td>P</td><td>지금 오차</td><td>“0.3 m 벗어났네, 그만큼 꺾자”</td></tr>" +
+          "<tr><td>I</td><td>쌓인 오차</td><td>“아까부터 계속 오른쪽이네”</td></tr>" +
+          "<tr><td>D</td><td>변화 속도</td><td>“빠르게 다가온다, 브레이크”</td></tr></table>" },
+        { h: "I항이 없으면 안 되는 이유", html:
+          "<p>이 차는 <b>가만히 둬도 오른쪽으로 쏠립니다</b>(트림 −1.5°, 실측).</p>" +
+          "<div class='eq'>직진하려면 +2.2° 조향이 상시 필요\n→ P가 그걸 만들려면  P = Kp × CTE  에서\n   CTE가 있어야 함\n→ CTE +0.14 m 가 영원히 안 사라짐</div>" +
+          "<p>이것을 <b>정상상태 오차</b>라고 합니다. I항이 시간에 따라 값을 키워서 이 쏠림을 지웁니다.</p>" },
+        { h: "D항 — 미분의 함정", html:
+          "<p>D항은 <b>브레이크</b>입니다. 오차가 줄어드는 중이면 조향을 덜어내 오버슛을 막습니다.</p>" +
+          "<p>문제는 <b>미분이 잡음을 증폭</b>한다는 것입니다.</p>" +
+          "<div class='eq'>d_cte_per_sec = (cte − prev_cte) / 0.05\n                                    ↑ 0.05로 나눔 = 20배</div>" +
+          "<p>GPS 잡음 <b>1 cm</b>가 <b>0.2 m/s</b>로 20배 뻥튀기됩니다. 그래서 두 겹으로 되누릅니다.</p>" +
+          "<table><tr><th>방어</th><th>값</th><th>효과</th></tr>" +
+          "<tr><td>LPF</td><td class='n'>α = 0.16</td><td>τ ≈ 0.26 s, 차단 0.61 Hz</td></tr>" +
+          "<tr><td>축소</td><td class='n'>× 0.20</td><td>실효 게인 0.022~0.060</td></tr></table>" +
+          "<p>차단 0.61Hz는 <b>잡아야 할 진동(0.156Hz)보다 4배 높고, 버려야 할 잡음(5Hz)보다 8배 낮은</b> 자리입니다.</p>" },
+        { h: "게인은 고정이 아니다", html:
+          "<p>속도에 따라 표에서 뽑아 <b>선형보간</b>합니다.</p>" +
+          "<table><tr><th>v (m/s)</th><th>Kp</th><th>Ki</th><th>Kd</th></tr>" +
+          "<tr><td class='n'>1.0</td><td class='n'>1.7</td><td class='n'>0.12</td><td class='n'>0.11</td></tr>" +
+          "<tr><td class='n'>1.8</td><td class='n'>2.1</td><td class='n'>0.16</td><td class='n'>0.17</td></tr>" +
+          "<tr><td class='n'>2.8</td><td class='n'>2.6</td><td class='n'>0.25</td><td class='n'>0.30</td></tr></table>" +
+          "<p>빠를수록 게인이 큽니다 — 빠르면 조금만 늦어도 크게 벌어지니까요. 조회에는 <b>저역통과된 속도</b>를 써서, 엔코더 계단(1틱 = 0.283 m/s)이 게인을 흔드는 것을 막습니다.</p>" },
+        { flag: "P항은 원래 <b>지연보상된 CTE</b>(cte + L·sinθe)를 받도록 설계됐지만, v6.7에서 <code>LEAD_WHEELBASE_MULT = 0.0</code>으로 <b>꺼졌습니다.</b> 상태예측이 그 역할을 대신하며, 둘 다 켜면 P항만 이중 보상되기 때문입니다. 현재 P항은 순수 CTE를 씁니다." }
+      ],
+      src: "driving.py:1521-1551 · 게인표 :245-256"
+    },
+
+    integ: {
+      kind: "guard", kicker: "안전장치", title: "적분 안정화 — 쌓되, 폭주하지 않게",
+      lede: "적분은 쏠림을 지우는 유일한 수단이지만, 한 번 잘못 쌓이면 스스로 못 빠져나옵니다.",
+      blocks: [
+        { h: "무엇이 위험한가 — 와인드업", html:
+          "<div class='eq'>급코너 → 조향 20° 포화 → 더 못 꺾음\n→ CTE 안 줄어듦 → 그래도 적분은 계속 쌓임\n→ 코너 탈출 → 쌓인 적분이 조향을 밀어붙임\n→ 반대편으로 크게 넘어감</div>" +
+          "<p>문이 잠긴 줄 모르고 계속 밀다가, 문이 열리는 순간 <b>그 힘 그대로 넘어지는</b> 것과 같습니다.</p>" },
+        { h: "① 부호반전 × 0.35", html:
+          "<div class='eq'>if (cte × prev_cte) < 0 :  cte_integral × 0.35</div>" +
+          "<p>곱이 음수 = 두 값의 <b>부호가 다름</b> = 차가 <b>경로선을 가로질러 넘어간 순간</b>입니다.</p>" +
+          "<p>예전에는 여기서 <b>0으로 완전 리셋</b>했는데, 그러면 좌우로 왕복할 때마다 리셋되어 <b>쏠림을 영영 못 쌓았습니다.</b></p>" +
+          "<table><tr><th>상황</th><th>0.35의 결과</th></tr>" +
+          "<tr><td>대칭 왕복 (좌↔우)</td><td>매번 깎이고 부호도 번갈아 → <b>0으로 수렴</b></td></tr>" +
+          "<tr><td>한쪽 쏠림</td><td>부호반전이 드묾 → <b>누적 유지</b></td></tr></table>" +
+          "<p><b>왕복은 우연, 편향은 진짜</b>로 취급하는 장치입니다.</p>" },
+        { h: "② 데드밴드 × 0.80", html:
+          "<div class='eq'>if |cte| < 데드밴드 :  cte_integral × 0.80\nelse                :  cte_integral += cte × dt\n\n데드밴드 — 직선 0.06 m / 코너 0.02 m</div>" +
+          "<p>곱하는 대상은 새 값이 아니라 <b>그동안 쌓인 누적값 전체</b>입니다.</p>" +
+          "<p>20Hz이므로 <code>0.8²⁰ ≈ 0.012</code> — <b>1초에 99% 사라집니다.</b> 0으로 지우면 조향이 덜컥거리니 부드럽게 놓아줍니다.</p>" +
+          "<p>뜻은 이렇습니다: <b>“지금 잘 가고 있으니 과거 보정을 서서히 놓는다.”</b></p>" },
+        { h: "③④⑤ 나머지 방어", html:
+          "<table><tr><th>장치</th><th>조건</th><th>동작</th></tr>" +
+          "<tr><td>클램프</td><td>항상</td><td class='n'>± 6.0</td></tr>" +
+          "<tr><td>주기 감쇠</td><td>클램프의 90% 초과</td><td class='n'>× 0.85</td></tr>" +
+          "<tr><td>하드 리셋</td><td>CTE 6m·세그먼트 20칸 점프</td><td class='n'>= 0</td></tr></table>" },
+        { h: "적분이 실제로 얼마나 기여하나", html:
+          "<div class='eq'>i_term 최대 = 6.0 (클램프) × 0.25 (Ki 최대) = 1.5°\n실측 기록          = 0.29° 이내</div>" +
+          "<p><b>적분은 미세 보정 전용</b>입니다. 급조향은 절대 못 만듭니다.</p>" },
+        { flag: "<code>Ki_CLAMP = 6.0</code>이 사실상 와인드업 방어를 겸하고 있습니다. 이 값을 크게 올리면 별도의 안티와인드업(출력 포화 시 적분 중단)이 필요해집니다." }
+      ],
+      src: "driving.py:1528-1541"
+    },
+
+    clamp9: {
+      kind: "guard", kicker: "안전장치", title: "PID 상한 ± 9° — 망가질 수 있는 쪽에 친 울타리",
+      lede: "PID는 발산할 수 있고 Pure Pursuit는 발산할 수 없습니다. 그 차이가 이 울타리의 이유입니다.",
+      blocks: [
+        { h: "두 제어기의 성격 차이", html:
+          "<table><tr><th></th><th>Pure Pursuit</th><th>PID</th></tr>" +
+          "<tr><td>계산</td><td>순수 기하(삼각형)</td><td>오차 피드백</td></tr>" +
+          "<tr><td>발산</td><td><b>불가능</b></td><td><b>가능</b></td></tr>" +
+          "<tr><td>상한</td><td>기하학적으로 32.4°</td><td>이론상 무한</td></tr></table>" +
+          "<p>PID 세 항 모두 고장 모드가 있습니다 — P는 과게인 진동, I는 와인드업, D는 잡음 증폭.</p>" },
+        { h: "9°는 물리적으로 무엇인가", html:
+          "<div class='eq'>R = L / tan(δ)      L = 0.73 m\n\n δ = 9°   →  R = 4.61 m   ← PID 단독 한계\n δ = 20°  →  R = 2.01 m   ← 차량 물리 한계</div>" +
+          "<p>PID 혼자서는 <b>최소 회전반경의 절반도 못 만듭니다</b>(2.3배 완만). 즉 <b>급회전 권한은 경로 기하만 갖습니다.</b></p>" +
+          "<p>전체 20° 중 45%이므로 <b>PP가 항상 과반을 확보</b>한다는 뜻이기도 합니다.</p>" },
+        { h: "평소에는 쓰이지 않는다", html:
+          "<div class='eq'>정상 CTE 0.3 m, Kp 2.6\n→ P항 = 0.78°      (한계의 8.7%)</div>" +
+          "<p>9°에 닿으려면 <b>CTE 3.46 m</b>가 필요합니다(9 ÷ 2.6). 정상 주행 CTE는 0.1~0.35 m 입니다.</p>" },
+        { h: "그럼 언제 작동하나", html:
+          "<p>CTE가 <b>천천히</b> 커지면 속도 캡이 먼저 걸려 게인이 낮아지므로 9°에 안 닿습니다.</p>" +
+          "<div class='eq'>CTE 4.0 m + 속도 캡 1.2 m/s (Kp≈1.8)\n→ P 7.2° + I 1.5° = 8.7°   ← 9° 아래</div>" +
+          "<p>실제로 작동하는 건 <b>“빠른데 갑자기 크게 벌어진”</b> 경우뿐입니다 — GPS 점프, 경로 재동기화 같은 상황이죠.</p>" +
+          "<div class='eq'>2.8 m/s 주행 중 (Kp 2.6) CTE가 순간 4.0 m로\n→ P 10.4° + I 1.5° = 11.9°  →  9°로 잘림</div>" },
+        { h: "왜 그때 잘라야 하나 — 핵심", html:
+          "<p><b>오차가 클수록 PID는 덜 믿을 만하고, Pure Pursuit는 더 믿을 만합니다.</b></p>" +
+          "<ul><li>PID는 “4m 옆이다”만 알 뿐, 그쪽이 <b>맞는 방향인지 모릅니다.</b></li>" +
+          "<li>PP는 <b>실제 경로 지점</b>을 보고 각도를 냅니다. 방향이 기하학적으로 보증됩니다.</li></ul>" +
+          "<p>길을 잃었을 때 “일단 저쪽으로 뛰어”보다 “지도상 다음 지점이 저기니까 저 방향으로”가 맞습니다.</p>" },
+        { flag: "클램프에 안티와인드업이 연결돼 있지 않지만, 적분이 자체 클램프로 1.5°에 묶여 있어 <b>적분이 이 포화의 원인이 될 수 없습니다.</b> 구조적으로 이미 막혀 있는 상태입니다." }
+      ],
+      src: "driving.py:474 · :1551"
+    },
+
+    curve: {
+      kind: "geo", kicker: "기하 계통", title: "곡률 스캔 — 앞의 길이 얼마나 급한가",
+      lede: "조향 명령이 아니라 경로 기하에서 직접 읽습니다. 그래서 순간 조향 잡음과 무관합니다.",
+      blocks: [
+        { h: "무엇을 재나", html:
+          "<p>앞으로 <b>0.4 m 간격</b>으로 훑으면서, 각 지점에서 <b>“이 코너를 돌려면 핸들을 몇 도 꺾어야 하나”</b>를 계산합니다.</p>" },
+        { h: "방법 A — 헤딩 변화율 (창 3 m)", html:
+          "<div class='eq'>Δθ = (뒤 3m 방향) − (앞 3m 방향)\nκ  = |Δθ| / 3m         ← 곡률\nδ  = atan(L × κ)       ← 요구 조향</div>" +
+          "<p>원의 곡률은 <code>κ = 1/R</code>이고 호를 Δs 갈 때 방향이 <code>Δs/R</code>만큼 바뀝니다. 뒤집으면 <code>κ = Δθ/Δs</code>.</p>" +
+          "<p><b>장점</b> 3m 평균이라 GPS 잡음에 강함. <b>치명적 단점</b> 짧고 급한 코너를 놓침.</p>" },
+        { h: "방법 B — Menger 곡률 (외접원 ±1.2 m)", html:
+          "<p>실측 근거: 실제 궤적 최소반경이 <b>1.5~2.2 m</b>(필요조향 18~26°)인데, 3m 창은 그 코너를 <b>11.4°로 읽었습니다.</b> 코너 호가 2~3m뿐인데 3m로 평균 내면 <b>직선 접근부까지 섞여</b> 희석되기 때문입니다.</p>" +
+          "<div class='eq'>A, B, C = d−1.2m, d, d+1.2m 세 지점\nR = (|AB|·|BC|·|AC|) / (2 × 삼각형넓이×2)\nδ = atan(L / R)</div>" +
+          "<p>삼각형 넓이 공식 <code>S = abc/4R</code>를 R에 대해 푼 것입니다. 세 점을 지나는 원은 하나뿐이라, 그 반경이 곧 그 지점의 곡률 반경입니다.</p>" +
+          "<p>검증: 같은 코너를 <b>3m창 11.9° vs 피크 16.2°</b> — 피크가 진짜에 가깝습니다.</p>" },
+        { h: "두 값의 용도가 다르다 — 설계의 핵심", html:
+          "<table><tr><th>용도</th><th>피크 반영</th><th>이유</th></tr>" +
+          "<tr><td>LFD 곡률캡</td><td><b>100%</b></td><td>급코너서 확실히 단축 → 코너컷 차단</td></tr>" +
+          "<tr><td>감속</td><td><b>35%</b></td><td>100%면 완만한 코너까지 과잉 감속</td></tr>" +
+          "<tr><td>ω_n 속도결속</td><td><b>제외</b></td><td>순간 피크가 속도를 물고 내려가는 연쇄 차단</td></tr></table>" },
+        { h: "두 번 스캔한다", html:
+          "<table><tr><th>스캔</th><th>거리</th><th>용도</th></tr>" +
+          "<tr><td>근거리</td><td class='n'>LFD × 1.6</td><td>지금 코너 속도 + LFD 캡</td></tr>" +
+          "<tr><td>원거리</td><td class='n'>최대 14 m</td><td>다가올 코너에 미리 감속</td></tr></table>" +
+          "<div class='eq'>v_brake = √(v_corner² + 2·a·제동거리)</div>" +
+          "<p>등가속도 공식 <code>v² = v₀² + 2as</code> 그대로입니다. “저 코너를 v_corner로 통과하려면 지금 몇으로 달려야 하나”를 역산합니다.</p>" }
+      ],
+      src: "driving.py:844-925"
+    },
+
+    lfd: {
+      kind: "geo", kicker: "기하 계통", title: "LFD — 얼마나 멀리 보고 핸들을 꺾을까",
+      lede: "고속도로에선 먼 곳을, 좁은 골목에선 코앞을 보는 것과 같은 원리입니다.",
+      blocks: [
+        { h: "두 단계로 쓰인다", html:
+          "<ul><li><b>1단계</b> LFD 길이(m)를 정한다 — WP와 무관, 속도와 곡률로 계산</li>" +
+          "<li><b>2단계</b> 그 길이만큼 떨어진 WP를 고른다 — 여기서 좌표를 따옴</li></ul>" },
+        { h: "길이를 정하는 식", html:
+          "<div class='eq'>LFD = min( 속도표 조회값 , √(1.5 × R_ahead) )\n                              └ 곡률 캡\n최종 범위 : 2.3 m ~ 4.0 m</div>" +
+          "<p>속도표는 느리면 2.0m, 빠르면 4.0m. 곡률 캡은 앞 코너 반경 R이 작을수록 짧아집니다.</p>" },
+        { h: "곡률 캡 √(1.5R)은 어디서 왔나", html:
+          "<div class='eq'>코너컷 오차 ≈ LFD² / (8R)\n이 오차를 0.18 m 이하로 묶으려면\n→ LFD ≤ √(1.5 × R)</div>" +
+          "<p><b>코너컷</b> — 목표점을 너무 멀리 잡으면 커브 <b>안쪽으로 질러가는</b> 현상. LFD를 짧게 하면 막힙니다.</p>" },
+        { h: "왜 LFD가 흔들리면 안 되나", html:
+          "<p>Pure Pursuit 식의 분모에 LFD가 있어서, 실질 게인이 <b>1/LFD²에 비례</b>합니다. LFD가 떨리면 게인이 떨립니다.</p>" +
+          "<p>그래서 LPF(α=0.40)와 <b>비대칭 슬루</b>를 겁니다.</p>" +
+          "<table><tr><th>방향</th><th>속도</th><th>이유</th></tr>" +
+          "<tr><td>감소 (코너 진입)</td><td class='n'>2.0 m/s</td><td>즉시 보호해야 함</td></tr>" +
+          "<tr><td>증가 (코너 탈출)</td><td class='n'>0.9 m/s</td><td>게인 점프 방지</td></tr></table>" },
+        { h: "2단계 — WP 고르기", html:
+          "<div class='eq'>거리 ≥ LFD  이면서  앞쪽(lx > 0)인\n첫 번째 WP  →  목표점 T</div>" +
+          "<p>따오는 것은 그 WP의 <b>위도·경도 두 개</b>뿐입니다.</p>" }
+      ],
+      src: "driving.py:1294-1314 · :1474-1490"
+    },
+
+    pp: {
+      kind: "geo", kicker: "기하 계통", title: "Pure Pursuit — 목표점을 지나는 원 그리기",
+      lede: "오차를 없애려는 게 아니라, 길 모양을 그대로 따라 그리는 제어기입니다.",
+      blocks: [
+        { h: "무엇이 오차인가", html:
+          "<p>거리가 아니라 <b>각도 α</b>입니다 — 목표점이 내 정면에서 몇 도 틀어졌는가.</p>" +
+          "<div class='eq'>lx = 앞뒤 성분,  ly = 좌우 성분\nα  = atan2(ly, lx)</div>" },
+        { h: "조향각 공식", html:
+          "<div class='eq'>δ_pp = atan( 2·L·sin(α) / LFD )\n\nL = 0.73 m (휠베이스)</div>" +
+          "<p>이것은 <b>기하학 공식</b>입니다. “목표점을 지나는 원을 그리려면 핸들을 몇 도 꺾어야 하나”의 답이죠. 오차를 지우려는 게 아닙니다.</p>" },
+        { h: "왜 발산하지 않나", html:
+          "<p>삼각형 계산이라 답이 항상 존재하고, 입력 α가 ±90° 안이면 출력도 자연히 제한됩니다.</p>" +
+          "<div class='eq'>최악: α = 90°, LFD = 2.3 m (최소)\nδ = atan(2 × 0.73 / 2.3) = 32.4°</div>" +
+          "<p>수학이 상한을 보증합니다. 이것이 PID와의 결정적 차이입니다.</p>" },
+        { h: "혼자서는 못 하는 것", html:
+          "<p>차가 길과 <b>나란히 30 cm 옆으로</b> 가고 있으면 α가 0에 가까워서 더 이상 고치지 않습니다. 이 <b>정상상태 오차</b>를 지우는 것이 PID(특히 I항)의 몫입니다.</p>" },
+        { h: "목표점이 뒤에 있으면", html:
+          "<p><code>lx ≤ 0.1</code>이면 폴백 경로로 갑니다 — 바로 다음 WP를 쓰되, 분모에 최소값을 두고 ±20°로 클램프해 급변을 막습니다.</p>" }
+      ],
+      src: "driving.py:1474-1516"
+    },
+
+    jitter: {
+      kind: "guard", kicker: "안전장치", title: "직선 잔떨림 억제 — 조용할 땐 조용히",
+      lede: "직선에서 미세 조향이 계속 들어가면 차가 떨고, 승차감과 타이어가 상합니다.",
+      blocks: [
+        { h: "언제 발동하나 — 세 조건 모두", html:
+          "<table><tr><td>직선인가</td><td class='n'>far_peak &lt; 6°</td></tr>" +
+          "<tr><td>거의 안 벗어났나</td><td class='n'>|CTE| &lt; 0.08 m</td></tr>" +
+          "<tr><td>조향이 작나</td><td class='n'>|δ| &lt; 3°</td></tr></table>" +
+          "<p>셋이 동시에 만족할 때만 개입합니다. 하나라도 아니면 그대로 통과시킵니다.</p>" },
+        { h: "어떻게 죽이나", html:
+          "<div class='eq'>if |δ| < 0.7° :  δ = 0            ← 완전히 죽임\nelse          :  δ = (|δ| − 0.35) × 0.72</div>" +
+          "<p>0.7° 미만은 <b>0으로</b>, 그 이상은 <b>수축</b>시킵니다. 딱 잘라 0으로 만들면 경계에서 덜컥거리므로, 중간 구간을 두어 부드럽게 넘어가게 합니다.</p>" },
+        { h: "직선 판정이 왜 피크 기준인가", html:
+          "<p>예전에는 평균 곡률로 판정했는데, <b>3m 창 기준 5°</b>여도 14m 안에 급피크가 있으면 실제로는 코너 접근 중입니다.</p>" +
+          "<p>그때 “직선”으로 오판하면 잔떨림 억제와 큰 데드밴드가 걸려 <b>턴인이 늦어집니다.</b> 그래서 피크 기준으로 바꿨습니다.</p>" }
+      ],
+      src: "driving.py:1558-1563 · :1278"
+    },
+
+    slew: {
+      kind: "guard", kicker: "안전장치", title: "평활 + 슬루 제한 — 한 번에 조금씩만",
+      lede: "값의 크기가 아니라 <b>변화 속도</b>를 제한합니다. 클램프와는 다른 개념입니다.",
+      blocks: [
+        { h: "클램프와 무엇이 다른가", html:
+          "<table><tr><td>클램프</td><td>“20°를 넘지 마라” — 값의 한계</td></tr>" +
+          "<tr><td>슬루</td><td>“한 틱에 3° 넘게 바꾸지 마라” — 변화율의 한계</td></tr></table>" +
+          "<p>수도꼭지를 <b>끝까지 열 수는 있지만 확 돌리지는 말라</b>는 것입니다.</p>" },
+        { h: "왜 필요한가", html:
+          "<ul><li><b>물리적으로 불가능한 명령 방지</b> — 서보가 0.05초에 20°를 못 움직입니다. 못 따라올 명령을 보내면 실제 거동을 예측할 수 없게 됩니다.</li>" +
+          "<li><b>진동 억제</b> — 급격한 변화 자체가 진동원입니다.</li>" +
+          "<li><b>승차감·안전</b></li></ul>" },
+        { h: "두 단계로 처리", html:
+          "<div class='eq'>① 평활  smoothed = δ×0.5 + prev×0.5\n② 슬루  변화량을 step_limit 이내로 자름</div>" },
+        { h: "슬루 한계는 상황별로 다르다", html:
+          "<table><tr><th>상황</th><th>한계</th><th>의도</th></tr>" +
+          "<tr><td>저속(코너)</td><td class='n'>2.5 °/틱</td><td>빠른 응답 허용</td></tr>" +
+          "<tr><td>고속</td><td class='n'>3.2 °/틱</td><td>급변 완화</td></tr>" +
+          "<tr><td>CTE &gt; 0.55 m</td><td class='n'>3.5 °/틱</td><td>빨리 복귀 허용</td></tr></table>" +
+          "<p>20Hz이므로 초당 <b>50~70°</b>에 해당합니다.</p>" },
+        { h: "이 루프의 슬루 제한 전체", html:
+          "<table><tr><th>대상</th><th>값</th><th>비대칭</th></tr>" +
+          "<tr><td>조향</td><td class='n'>2.5~3.5 °/틱</td><td>속도 의존</td></tr>" +
+          "<tr><td>가속</td><td class='n'>1.7 m/s²</td><td rowspan='2'>가속 느림<br>감속 빠름</td></tr>" +
+          "<tr><td>감속</td><td class='n'>3.5~4.5 m/s²</td></tr>" +
+          "<tr><td>LFD 증가</td><td class='n'>0.9 m/s</td><td rowspan='2'>감소 빠름<br>증가 느림</td></tr>" +
+          "<tr><td>LFD 감소</td><td class='n'>2.0 m/s</td></tr></table>" +
+          "<p>모두 <b>안전한 쪽으로 비대칭</b>입니다. 늦게 가속하면 조금 느릴 뿐이지만, 늦게 감속하면 코너에서 밀려납니다.</p>" }
+      ],
+      src: "driving.py:1570-1579"
+    },
+
+    clamp20: {
+      kind: "guard", kicker: "안전장치", title: "± 20° 클램프 + 저속 권한",
+      lede: "합쳐진 조향은 20°를 넘을 수 있습니다. 여기가 마지막 보증선입니다.",
+      blocks: [
+        { h: "합계가 정말 20°를 넘는가", html:
+          "<div class='eq'>Pure Pursuit 최대   32.4°   (클램프 없음)\nPID 최대             9.0°\n──────────────────────────\n이론상 합계         41.4°</div>" +
+          "<p><b>넘습니다.</b> 그래서 방어가 여러 겹입니다.</p>" },
+        { h: "3중 방어", html:
+          "<table><tr><th>순서</th><th>장치</th><th>값</th></tr>" +
+          "<tr><td>①</td><td>소프트 클램프</td><td class='n'>± 24°</td></tr>" +
+          "<tr><td>②</td><td>평활 + 슬루</td><td class='n'>2.5~3.5 °/틱</td></tr>" +
+          "<tr><td>③</td><td>하드 클램프</td><td class='n'>± 20°</td></tr></table>" +
+          "<p>실질적으로 <b>②가 가장 강력</b>합니다. 41°가 나와도 한 틱에 3.5°씩만 움직이므로 20°에 닿기까지 6틱(0.3초)이 걸리고, 그 사이 다음 루프가 값을 바꿉니다.</p>" },
+        { h: "왜 ①이 20이 아니라 24인가", html:
+          "<p>20°로 바로 자르면 “더 꺾고 싶다”는 의도가 사라집니다. 4° 여유를 두면 평활(×0.5)로 희석돼도 <b>20°에 확실히 도달</b>합니다.</p>" +
+          "<p>목표가 20층인데 엘리베이터가 늘 조금 못 미치면, 24층을 눌러두면 20층엔 확실히 갑니다.</p>" },
+        { h: "저속 조향 권한", html:
+          "<div class='eq'>steer_authority = clamp(v / 0.5, 0.15, 1.0)\nδ = δ × steer_authority</div>" +
+          "<p>정지~저속에서는 조향이 물리적 효과가 없는데 크게 꺾어두면 <b>출발 순간 덜컥거립니다.</b> 실제 로그에서 정지 중 −20°가 유지된 것이 확인됐습니다.</p>" +
+          "<p>주행 중 최저속이 1.0 m/s이므로 정상 주행에는 영향이 없고, <b>출발과 최종 크립에서만</b> 작동합니다.</p>" },
+        { flag: "<code>prev_steer</code>에는 클램프 <b>전</b> 값(최대 24°)이 저장됩니다. 출력이 20°로 포화된 동안 내부 상태는 24°까지 올라갈 수 있어, 반대로 꺾을 때 그 4°만큼 반응이 늦습니다. 포화 비율이 0.6~1.4%로 기록돼 실제 영향은 미미합니다." }
+      ],
+      src: "driving.py:1565 · :1582-1589"
+    },
+
+    gain: {
+      kind: "guard", kicker: "안전장치", title: "게인 · 트림 보정 — 차의 왜곡을 미리 상쇄",
+      lede: "“명령한 각도 ≠ 실제 꺾인 각도”입니다. 그 차이를 역함수로 미리 되돌립니다.",
+      blocks: [
+        { h: "두 가지 어긋남 (실측)", html:
+          "<table><tr><th>종류</th><th>값</th><th>정체</th></tr>" +
+          "<tr><td>트림 (더하기)</td><td class='n'>−1.5°</td><td>가만히 둬도 오른쪽 쏠림</td></tr>" +
+          "<tr><td>게인 (곱하기)</td><td class='n'>0.85</td><td>명령의 85%만 실제로 꺾임</td></tr></table>" +
+          "<p><b>트림 측정</b> — 직진 명령 중 요레이트가 −3.64°/s인데 정지 시 자이로는 −0.004°/s. 센서가 아니라 <b>차가 물리적으로 쏠린다</b>는 뜻입니다.</p>" +
+          "<p><b>게인 측정</b> — 조향 명령과 IMU 요레이트를 상호상관 분석 → 기울기 0.85. 원인은 서보 스케일, 링키지 유격, 타이어 슬립.</p>" },
+        { h: "보정 공식 — 역함수", html:
+          "<div class='eq'>차가 하는 일 :  실제 = 0.85 × 명령 + (−1.5)\n\n원하는 것   :  실제 = δ_ctrl\n풀면        :  δ_pub = (δ_ctrl + 1.5) / 0.85</div>" +
+          "<p>수학의 <code>f⁻¹(f(x)) = x</code>와 같은 구조입니다. 차가 왜곡시키니 <b>미리 역함수를 통과</b>시켜 상쇄합니다.</p>" },
+        { h: "좌우가 다르다", html:
+          "<table><tr><th>방향</th><th>게인</th><th>이유</th></tr>" +
+          "<tr><td>좌회전</td><td class='n'>0.85</td><td>대칭 양호 (CTE −0.016 m)</td></tr>" +
+          "<tr><td>우회전</td><td class='n'>0.82</td><td>바깥밀림 −0.105 m 보정</td></tr></table>" +
+          "<p>강한 우조향 320샘플의 CTE 평균이 −0.105 m — 우회전에서 경로 바깥으로 밀렸습니다(언더스티어). 그래서 우측만 3.7% 더 꺾도록 분리했습니다.</p>" },
+        { h: "검증", html:
+          "<div class='eq'>δ_ctrl = −0.064°\nδ_pub  = (−0.064 + 1.5) / 0.85 = 1.6896°\n           ↑ 실제 로그 첫 발행값과 정확히 일치</div>" +
+          "<p>거의 0°를 원했는데 실제로는 <b>+1.69°를 명령</b>합니다. 쏠리는 만큼 미리 반대로 틀어주는 것이죠.</p>" },
+        { h: "왜 개루프인가", html:
+          "<p><b>실제 조향각을 재는 센서가 없습니다.</b> <code>/ego_state[6]</code> 자리가 있지만 <code>0.0</code>이 하드코딩돼 있고, 코드 어디에서도 읽지 않습니다.</p>" +
+          "<p>각도를 못 재니 <b>미리 계산해 보정하는 방법밖에 없습니다.</b> 그래서 이 값들은 실험(로스백 분석)으로만 구할 수 있고, 차가 바뀌면 재측정해야 합니다.</p>" },
+        { flag: "보정 뒤 다시 ±20°로 클램프되므로, <b>δ_ctrl이 15.5°(좌)·17.9°(우)를 넘으면 보정분이 잘려나갑니다.</b> 급코너에서는 보정 없이 명령이 나가 실제로 85%만 꺾입니다 — 기록된 “급코너 바깥밀림”과 연관 가능성이 있습니다." },
+        { flag: "좌우 게인 분리는 <b>잠정</b>입니다. 주석에 “−0.1 m가 제어 언더스티어인지 회전 중 안테나 투영 측정편향인지 단정 불가(테스트 필요)”라고 적혀 있습니다. 보고서에는 <b>검증 예정</b>으로 표기하는 것이 정확합니다." }
+      ],
+      src: "driving.py:813-822 · 상수 :415-433"
+    },
+
+    plant: {
+      kind: "plant", kicker: "물리", title: "차량 — 조향이 위치로 바뀌는 곳",
+      lede: "여기서부터는 코드가 아니라 물리 법칙입니다. 그리고 여기서 새 오차가 태어납니다.",
+      blocks: [
+        { h: "명령이 전달되는 경로", html:
+          "<div class='eq'>/cmd_vel_raw (Twist)\n  linear.x  = 속도 [m/s]\n  angular.z = 조향 [deg]\n        ↓  motor.py\n\"C,{tick},{steer}\"  →  아두이노 (100 Hz PID)\n        ↓\n서보(조향) + 모터(구동)</div>" +
+          "<p>속도는 틱으로 환산됩니다.</p>" +
+          "<div class='eq'>tick = v × 0.01 × 300 / 0.8482 = v × 3.537\n1 tick ≈ 0.283 m/s   ← 속도 분해능</div>" },
+        { h: "자전거 모델", html:
+          "<div class='eq'>ψ̇ = (v / L) · tan(δ) · 0.85     L = 0.73 m\n       ↓ 적분\n헤딩 ψ 변화\n       ↓ 적분\n위치 (x, y) 변화\n       ↓\n경로에서 벗어난 거리 = 새 CTE</div>" +
+          "<p><b>적분이 두 번</b> 들어갑니다. 전달함수로 보면 <code>1/s²</code> — 그 자체로 불안정한 계라서, 앞의 모든 감쇠 장치가 필요했던 것입니다.</p>" },
+        { h: "루프는 어떻게 닫히나", html:
+          "<table><tr><th>피드백</th><th>실제로 오나</th></tr>" +
+          "<tr><td>엔코더 (속도)</td><td><b>예</b> — /encoder 토픽</td></tr>" +
+          "<tr><td>조향각</td><td><b>아니오</b> — 센서 없음</td></tr>" +
+          "<tr><td>IMU 요레이트</td><td><b>예</b> — 조향의 <b>결과</b>를 측정</td></tr>" +
+          "<tr><td>위치·헤딩</td><td><b>예</b> — GPS+IMU 융합</td></tr></table>" +
+          "<p>조향은 <b>각도를 직접 재서</b> 닫는 것이 아니라, <b>차가 실제로 얼마나 돌았는지</b>로 닫힙니다.</p>" },
+        { h: "전달함수로 쓰면", html:
+          "<div class='eq'>e(s)/δ(s) ≈ (v²·K / L·s²) · e^(−0.55s)\n\n제어기 :\nδ(s) = 2L·α(s)/LFD  +  (Kp + Ki/s + Kd·s)·e(s)\n       └ Pure Pursuit ┘  └────── PID ──────┘</div>" +
+          "<p>Pure Pursuit의 자연진동수를 코드가 직접 관리합니다.</p>" +
+          "<div class='eq'>ω_n = √2 · v / LFD  ≤  Ω = 0.95 rad/s</div>" +
+          "<p>지연 0.55초가 <b>정확히 이 주파수</b>의 감쇠를 지워버린 것이 개발 기록에 남은 핵심 문제였습니다.</p>" },
+        { h: "그리고 0.05초 뒤", html:
+          "<p>새 위치가 <code>/ego_state</code>로 올라오고, 새 CTE가 계산되고, 루프가 다시 시작됩니다.</p>" }
+      ],
+      src: "motor.py:281-321 · driving.py:1092-1098"
+    }
+  };
+
+  var ORDER = ["input","predict","wp","cte","ctelpf","pid","integ","clamp9","curve","lfd","pp","jitter","slew","clamp20","gain","plant"];
+
+  var panel = document.getElementById("panel");
+  var nodes = Array.prototype.slice.call(document.querySelectorAll(".node"));
+  var current = null;
+
+  function render(id) {
+    var d = D[id] || D.intro;
+    var h = "";
+    h += '<span class="p-kicker k-' + d.kind + '">' + d.kicker + "</span>";
+    h += '<h2 class="p-title">' + d.title + "</h2>";
+    if (d.lede) h += '<p class="p-lede">' + d.lede + "</p>";
+    (d.blocks || []).forEach(function (b) {
+      if (b.flag) { h += '<div class="flag">' + b.flag + "</div>"; return; }
+      h += '<div class="blk"><div class="blk-h">' + b.h + "</div>" + b.html + "</div>";
+    });
+    if (d.src) h += '<div class="src">' + d.src + "</div>";
+
+    var i = ORDER.indexOf(id);
+    h += '<div class="nav">';
+    h += '<button type="button" data-go="prev"' + (i <= 0 ? " disabled" : "") + ">← 이전 블록</button>";
+    h += '<button type="button" data-go="next"' + (i < 0 || i >= ORDER.length - 1 ? " disabled" : "") + ">다음 블록 →</button>";
+    h += "</div>";
+
+    panel.innerHTML = h;
+    panel.querySelectorAll("[data-go]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var j = ORDER.indexOf(current);
+        var k = btn.getAttribute("data-go") === "prev" ? j - 1 : j + 1;
+        if (k >= 0 && k < ORDER.length) select(ORDER[k], true);
+      });
+    });
+  }
+
+  function select(id, scroll) {
+    current = id;
+    nodes.forEach(function (n) { n.classList.toggle("on", n.getAttribute("data-id") === id); });
+    render(id);
+    if (scroll) {
+      var el = document.querySelector('.node[data-id="' + id + '"]');
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      if (window.innerWidth <= 900) panel.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  }
+
+  nodes.forEach(function (n) {
+    var id = n.getAttribute("data-id");
+    n.addEventListener("click", function () { select(id, false); });
+    n.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(id, false); }
+    });
+  });
+
+  current = null;
+  render("intro");
+})();
+</script>
+
+</body>
+</html>

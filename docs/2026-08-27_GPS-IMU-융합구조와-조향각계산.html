@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>헤딩은 누가 만드는가</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#EEF0F2; --card:#FAFBFC; --sunk:#E3E6EA;
+  --ink:#151A20; --ink2:#3D4750; --faint:#78838D; --line:#CDD4DA; --hair:#E0E5E9;
+  --imu:#6B4A9C; --imu-bg:#EBE4F5; --gps:#12695C; --gps-bg:#DCEBE7;
+  --warn:#8A6410; --warn-bg:#F5EAD3;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#12151A; --card:#1A1F25; --sunk:#232930;
+  --ink:#E4E8EC; --ink2:#B2BCC5; --faint:#7F8A94; --line:#2D343B; --hair:#242A31;
+  --imu:#B294E0; --imu-bg:#241C33; --gps:#5FBCA9; --gps-bg:#122B27;
+  --warn:#D3A94F; --warn-bg:#2E2513;
+}}
+:root[data-theme="dark"]{
+  --paper:#12151A; --card:#1A1F25; --sunk:#232930;
+  --ink:#E4E8EC; --ink2:#B2BCC5; --faint:#7F8A94; --line:#2D343B; --hair:#242A31;
+  --imu:#B294E0; --imu-bg:#241C33; --gps:#5FBCA9; --gps-bg:#122B27;
+  --warn:#D3A94F; --warn-bg:#2E2513;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans KR",system-ui,sans-serif;font-size:15.5px;line-height:1.75;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:50rem;margin:0 auto;padding:0 1.4rem 6rem}
+h1,h2,h3{font-family:"Gothic A1",sans-serif;letter-spacing:-.02em;text-wrap:balance}
+code,.mono{font-family:"IBM Plex Mono",monospace}
+
+header{padding:3.2rem 0 1.6rem;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--faint);margin-bottom:1rem}
+h1{font-size:clamp(1.9rem,5vw,2.7rem);font-weight:800;margin:0 0 .7rem;line-height:1.18}
+.lede{color:var(--ink2);margin:0;max-width:38rem}
+
+.verdict{margin:2.2rem 0 0;display:flex;flex-direction:column;gap:.55rem}
+.vr{display:grid;grid-template-columns:2.6rem 1fr;gap:.9rem;align-items:start;
+  background:var(--card);border:1px solid var(--hair);padding:.85rem 1rem}
+.vr .m{font-family:"Gothic A1",sans-serif;font-weight:800;font-size:1.15rem;line-height:1.5}
+.vr.ok .m{color:var(--gps)} .vr.no .m{color:var(--warn)}
+.vr b{display:block;font-weight:600;margin-bottom:.12rem}
+.vr p{margin:0;color:var(--ink2);font-size:.93rem}
+
+h2{font-size:1.32rem;font-weight:800;margin:3.4rem 0 .2rem;padding-bottom:.45rem;
+  border-bottom:2px solid var(--ink)}
+h2 .n{font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--faint);
+  display:block;font-weight:400;letter-spacing:.1em;margin-bottom:.3rem}
+h3{font-size:1.02rem;font-weight:700;margin:2rem 0 .35rem}
+p{margin:.7rem 0}
+.q{color:var(--ink2)}
+
+figure{margin:1.8rem 0;padding:0}
+figure svg{width:100%;height:auto;display:block}
+figcaption{font-size:.83rem;color:var(--faint);margin-top:.7rem;line-height:1.6;
+  border-left:2px solid var(--line);padding-left:.75rem}
+.fbox{background:var(--card);border:1px solid var(--hair);padding:1.2rem 1rem}
+
+.step{display:grid;grid-template-columns:2.1rem 1fr;gap:1rem;margin:1.5rem 0;align-items:start}
+.step .k{font-family:"IBM Plex Mono",monospace;font-size:.78rem;color:var(--paper);
+  background:var(--ink);width:1.75rem;height:1.75rem;display:flex;align-items:center;
+  justify-content:center;margin-top:.2rem}
+.step h3{margin:0 0 .2rem}
+.step p{margin:.35rem 0}
+
+pre{margin:.7rem 0;background:var(--sunk);padding:.75rem .9rem;overflow-x:auto;
+  font-family:"IBM Plex Mono",monospace;font-size:.775rem;line-height:1.65;color:var(--ink2)}
+pre b{color:var(--ink);font-weight:500}
+.src{font-family:"IBM Plex Mono",monospace;font-size:.7rem;color:var(--faint);
+  letter-spacing:.02em;margin-top:-.35rem}
+
+.tw{overflow-x:auto;margin:1.2rem 0}
+table{border-collapse:collapse;width:100%;font-size:.87rem;min-width:34rem}
+th,td{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--hair);vertical-align:top}
+th{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);
+  border-bottom:1px solid var(--line);font-weight:500}
+td.mono,th.mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:var(--card)}
+.tag{font-family:"IBM Plex Mono",monospace;font-size:.68rem;padding:.08rem .4rem;
+  border:1px solid currentColor;white-space:nowrap}
+.tag.i{color:var(--imu)} .tag.g{color:var(--gps)}
+
+.note{background:var(--warn-bg);border-left:3px solid var(--warn);padding:.85rem 1rem;
+  margin:1.4rem 0;font-size:.93rem}
+.note b{color:var(--warn)}
+.key{background:var(--card);border:1px solid var(--line);padding:1rem 1.1rem;margin:1.4rem 0}
+.key b{display:block;font-family:"Gothic A1",sans-serif;font-weight:800;margin-bottom:.3rem}
+
+.mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:0;
+  border:1px solid var(--hair);margin:1.3rem 0}
+.mini div{padding:.8rem .9rem;border-right:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+.mini b{display:block;font-family:"IBM Plex Mono",monospace;font-size:1.25rem;font-weight:500;
+  font-variant-numeric:tabular-nums;line-height:1.3}
+.mini span{font-size:.74rem;color:var(--faint)}
+footer{margin-top:4rem;padding-top:1.2rem;border-top:1px solid var(--line);
+  font-size:.78rem;color:var(--faint);font-family:"IBM Plex Mono",monospace}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">white_ws · gps_imu.py · 1/5 스케일 자율주행</div>
+  <h1>헤딩은 누가 만드는가</h1>
+  <p class="lede">차가 “지금 어느 쪽을 보고 있는가”라는 숫자 하나가 조향각 전체를 좌우한다.
+  그 숫자를 IMU와 GPS가 어떻게 나눠 만드는지, 코드의 실제 줄을 따라 읽는다.</p>
+</header>
+
+<section class="verdict">
+  <div class="vr ok"><div class="m">○</div><div>
+    <b>“IMU가 방향을 주도하고, 쌓이는 오차를 GPS 진행방향으로 조금씩 보정한다”</b>
+    <p>맞다. 코드 머리말이 그대로 그렇게 적혀 있다 — <span class="mono">헤딩 : IMU 적분(yaw_offset) 주도 + GPS 코스로 저게인 drift/연속 미세보정</span>.
+    한 번에 고치는 양은 어긋난 각도의 <b>4 %</b>다.</p></div></div>
+
+  <div class="vr no"><div class="m">×</div><div>
+    <b>“초기 헤딩은 IMU가 잡는다”</b>
+    <p>반대다. 출발 직후 <b>GPS가 초기 헤딩을 잡고, 거기에 IMU를 붙인다.</b>
+    IMU는 “지금 몇 도”를 알려 주지만 그건 전원을 켠 순간을 0°로 삼은 <em>자기 기준</em>이라
+    지도의 동서남북과 아무 상관이 없다.</p></div></div>
+
+  <div class="vr no"><div class="m">×</div><div>
+    <b>“매핑한 경로의 그 지점 헤딩과 비교해서 보정한다”</b>
+    <p>아니다. 경로 파일에는 IMU 헤딩이 저장되지 않고, 보정할 때 경로를 보지도 않는다.
+    비교 상대는 언제나 <b>지금 내 GPS 궤적이 실제로 그린 방향</b>이다.
+    경로와의 비교는 완전히 별개의 일(CTE·lead)로 driving.py에서 한다.</p></div></div>
+
+  <div class="vr no"><div class="m">△</div><div>
+    <b>“센서가 서로 붙는 곳은 96 : 4 헤딩 보정 하나뿐인가”</b>
+    <p>아니다. 최소 <b>열 군데</b>가 더 있고, 그중에는 <b>IMU가 GPS 위치를 바꾸는</b> 반대 방향 결합도 있다.
+    <span class="mono">/ego_state</span>로 나가는 좌표는 순수한 GPS 값이 아니다 — 5장에 전부 모아 두었다.</p></div></div>
+</section>
+
+<h2><span class="n">01 / 두 센서의 성격</span>왜 하나만으로는 안 되는가</h2>
+
+<p>GPS와 IMU는 서로의 약점을 정확히 덮는다. 그래서 붙인다.</p>
+
+<div class="tw"><table>
+<thead><tr><th>　</th><th>GPS</th><th>IMU</th></tr></thead>
+<tbody>
+<tr><td>말해 주는 것</td><td>지도 위 <b>절대 위치</b></td><td>차체의 <b>회전</b></td></tr>
+<tr><td class="mono">주기</td><td class="mono">5 Hz (0.2초에 한 번)</td><td class="mono">50 Hz (0.02초에 한 번)</td></tr>
+<tr><td>단기 정확도</td><td>값이 툭툭 튄다</td><td>매우 매끄럽다</td></tr>
+<tr><td>장기 정확도</td><td>몇 시간이 지나도 안 틀어진다</td><td>서서히 틀어진다 (드리프트)</td></tr>
+<tr><td>방향을 아는가</td><td>움직여야만 안다 (궤적의 기울기)</td><td>즉시 안다. 단 자기 기준</td></tr>
+<tr><td>못 하는 것</td><td>멈춰 있으면 방향을 모른다</td><td>지도의 북쪽이 어딘지 모른다</td></tr>
+</tbody></table></div>
+
+<div class="key"><b>거래 조건</b>
+GPS는 <em>기준</em>을 갖고 있고 IMU는 <em>반응</em>을 갖고 있다.
+그래서 이 코드는 IMU에게 매 순간의 방향을 맡기고, GPS에게는 그 방향이 지도에서 어긋나지 않았는지
+가끔 확인해 주는 역할만 맡긴다.</div>
+
+<h2><span class="n">02 / 융합 지점</span>붙는 자리는 딱 한 군데다 — <span class="mono">yaw_offset</span></h2>
+
+<p>이 코드의 헤딩 공식은 파일 전체에서 단 한 줄이다.</p>
+
+<pre><b>heading = normalize_angle(raw_imu_yaw_unwrap + yaw_offset)</b></pre>
+<p class="src">gps_imu.py 1023행 · main_loop() 안, 20 Hz 마다 실행</p>
+
+<p><span class="mono">raw_imu_yaw_unwrap</span>은 IMU가 준 각도를 그대로 이어붙인 값이고,
+<span class="mono">yaw_offset</span>은 “그 값에 몇 도를 더해야 지도 기준이 되는가”라는 <b>보정 상수</b>다.
+GPS는 <span class="mono">heading</span>을 절대 직접 건드리지 않는다. 오직 <span class="mono">yaw_offset</span>만 조금씩 민다.</p>
+
+<figure class="fbox">
+<svg viewBox="0 0 760 330" role="img" aria-label="IMU 각도에 yaw_offset을 더해 heading을 만들고, GPS 궤적 방향과 비교한 차이의 4퍼센트만 yaw_offset에 되먹이는 구조">
+<defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+  </marker>
+  <marker id="arI" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#6B4A9C"/>
+  </marker>
+  <marker id="arG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#12695C"/>
+  </marker>
+</defs>
+<g font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">
+
+  <!-- IMU 라인 -->
+  <rect x="14" y="34" width="150" height="46" fill="none" stroke="#6B4A9C" stroke-width="1.5"/>
+  <text x="89" y="53" text-anchor="middle" fill="#6B4A9C" font-size="12.5">IMU 50 Hz</text>
+  <text x="89" y="70" text-anchor="middle" fill="#6B4A9C" font-size="10.5">쿼터니언 → yaw</text>
+  <line x1="164" y1="57" x2="252" y2="57" stroke="#6B4A9C" stroke-width="1.5" marker-end="url(#arI)"/>
+  <text x="208" y="49" text-anchor="middle" fill="#6B4A9C" font-size="10">이어붙임</text>
+
+  <rect x="252" y="34" width="128" height="46" fill="none" stroke="#6B4A9C" stroke-width="1.5"/>
+  <text x="316" y="57" text-anchor="middle" fill="#6B4A9C" font-size="11">raw_imu_yaw</text>
+  <text x="316" y="72" text-anchor="middle" fill="#6B4A9C" font-size="10.5">_unwrap</text>
+
+  <!-- 덧셈 -->
+  <line x1="380" y1="57" x2="446" y2="57" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+  <circle cx="470" cy="57" r="17" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="470" y="62" text-anchor="middle" font-size="16">+</text>
+
+  <line x1="487" y1="57" x2="556" y2="57" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+  <rect x="556" y="34" width="190" height="46" fill="none" stroke="currentColor" stroke-width="2"/>
+  <text x="651" y="53" text-anchor="middle" font-size="13">heading</text>
+  <text x="651" y="70" text-anchor="middle" font-size="10">지도 기준 차량 방향 [°]</text>
+
+  <!-- offset 박스 -->
+  <rect x="392" y="150" width="156" height="44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="470" y="169" text-anchor="middle" font-size="12">yaw_offset</text>
+  <text x="470" y="185" text-anchor="middle" font-size="10">지도에 맞추는 보정각</text>
+  <line x1="470" y1="150" x2="470" y2="78" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- GPS 라인 -->
+  <rect x="14" y="248" width="150" height="46" fill="none" stroke="#12695C" stroke-width="1.5"/>
+  <text x="89" y="267" text-anchor="middle" fill="#12695C" font-size="12.5">GPS 5 Hz</text>
+  <text x="89" y="284" text-anchor="middle" fill="#12695C" font-size="10.5">위도 · 경도</text>
+  <line x1="164" y1="271" x2="228" y2="271" stroke="#12695C" stroke-width="1.5" marker-end="url(#arG)"/>
+  <text x="196" y="263" text-anchor="middle" fill="#12695C" font-size="10">두 점 차이</text>
+
+  <rect x="228" y="248" width="152" height="46" fill="none" stroke="#12695C" stroke-width="1.5"/>
+  <text x="304" y="267" text-anchor="middle" fill="#12695C" font-size="11">gps_dir</text>
+  <text x="304" y="283" text-anchor="middle" fill="#12695C" font-size="10">궤적이 그린 실제 방향</text>
+
+  <!-- 비교 -->
+  <line x1="380" y1="271" x2="446" y2="271" stroke="#12695C" stroke-width="1.5" marker-end="url(#arG)"/>
+  <circle cx="470" cy="271" r="17" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="470" y="276" text-anchor="middle" font-size="15">−</text>
+  <text x="470" y="309" text-anchor="middle" font-size="10.5">drift</text>
+
+  <!-- heading 이 비교로 내려옴 -->
+  <path d="M651 80 L651 271 L487 271" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="600" y="263" text-anchor="middle" font-size="10">지금 믿고 있는 방향</text>
+
+  <!-- 되먹임 -->
+  <path d="M470 254 L470 218 L560 218 L560 172 L548 172" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="612" y="215" text-anchor="middle" font-size="11">× 0.04 만 되먹임</text>
+  <text x="612" y="230" text-anchor="middle" font-size="10" fill="#12695C">(어긋난 각도의 4 %)</text>
+
+  <!-- 출력 -->
+  <line x1="746" y1="57" x2="752" y2="57" stroke="currentColor" stroke-width="1.5"/>
+  <text x="651" y="106" text-anchor="middle" font-size="10.5">→ /ego_state[4] → driving.py</text>
+</g>
+</svg>
+<figcaption><b>융합은 덧셈 한 번과 되먹임 한 줄이다.</b>
+IMU는 매끄러운 각도를 계속 흘려보내고, GPS는 그 각도가 실제 궤적과 얼마나 어긋났는지(drift)만 측정한다.
+어긋난 만큼을 곧바로 고치지 않고 4 %만 <span class="mono">yaw_offset</span>에 반영하기 때문에,
+IMU의 빠른 반응은 그대로 남고 GPS의 튀는 잡음은 걸러진다. 이것이 상보필터다.</figcaption>
+</figure>
+
+<div class="key"><b>0.96 : 0.04 의 정확한 뜻</b>
+새 헤딩 = <span class="mono">0.96 × (IMU가 말하는 방향) + 0.04 × (GPS가 말하는 방향)</span>.
+5 Hz로 4 %씩 밀면 어긋난 각도의 63 %를 지우는 데 <b>약 5초</b>가 걸린다.
+“5초쯤 꾸준히 같은 말을 해야 GPS 말을 믿어 준다”는 뜻이고, 코너에서 GPS가 잠깐 엉뚱한 방향을 가리켜도
+헤딩이 휘둘리지 않는 이유가 이것이다.</div>
+
+<h2><span class="n">03 / 시작</span>출발 직후 1미터 — 지도에 나를 붙이는 순간</h2>
+
+<p>전원을 켠 IMU는 “나는 0°를 보고 있다”고 말한다. 그 0°가 지도의 어디인지는 아무도 모른다.
+그래서 차는 <b>일단 조금 굴러 봐야</b> 한다. 굴러간 자국의 방향이 곧 실제 방위이기 때문이다.</p>
+
+<pre>self.yaw_offset = normalize_angle(<b>gps_heading - self.raw_imu_yaw_unwrap</b>)
+self.heading    = gps_heading</pre>
+<p class="src">gps_imu.py 687–688행 · 헤딩 고정(lock) 성립 순간, 주행 중 딱 한 번</p>
+
+<p>이 두 줄이 “지도에 붙이는” 전부다. 이후 IMU가 30° 돌면 heading도 30° 돈다 — 기준점이 정해졌으니까.
+문제는 <b>언제</b> 이 두 줄을 실행하느냐다. 차가 비뚤게 출발하거나 GPS가 튀는 순간에 기준을 잡으면
+그 오차가 주행 내내 따라다닌다. 그래서 여섯 가지 조건을 <em>모두</em> 만족해야 한다.</p>
+
+<div class="tw"><table>
+<thead><tr><th>조건</th><th class="mono">기준값</th><th>왜 필요한가</th></tr></thead>
+<tbody>
+<tr><td>GPS 이동거리</td><td class="mono">≥ 1.0 m</td><td>짧게 움직이면 GPS 오차가 방향을 지배한다</td></tr>
+<tr><td>엔코더 누적</td><td class="mono">≥ 0.60 m</td><td>바퀴가 실제로 굴렀는지 별도 확인 (GPS만 튄 경우 배제)</td></tr>
+<tr><td>속도</td><td class="mono">≥ 0.20 m/s</td><td>기어가듯 느리면 궤적 방향이 부정확하다</td></tr>
+<tr><td>GPS 방향 흔들림</td><td class="mono">≤ 15°</td><td>최근 7개 측정이 서로 비슷한 방향을 가리켜야 한다</td></tr>
+<tr><td>요레이트(회전)</td><td class="mono">≤ 4°/s</td><td>돌면서 잡으면 “언제의 방향”인지 애매해진다</td></tr>
+<tr><td>IMU 총변화</td><td class="mono">≤ 6°</td><td>측정 구간 내내 실제로 직진했다는 증거</td></tr>
+</tbody></table></div>
+
+<div class="note"><b>탈출구도 있다.</b> 다른 조건은 다 맞는데 IMU 게이트만 8초 넘게 막고 있으면
+경고를 남기고 그냥 통과시킨다(<span class="mono">HEADING_LOCK_IMU_GATE_TIMEOUT_S = 8.0</span>).
+진동이 심한 노면에서 차가 영원히 출발하지 못하는 것을 막기 위한 장치다.</div>
+
+<h2><span class="n">04 / 유지</span>보정은 두 갈래로 들어온다</h2>
+
+<p>기준을 잡은 뒤에도 IMU는 시간이 갈수록 조금씩 틀어진다. 그것을 되돌리는 통로가 두 개 있는데,
+성격이 완전히 다르다. 하나는 <b>큰 어긋남을 가끔</b>, 다른 하나는 <b>작은 어긋남을 자주</b> 잡는다.</p>
+
+<div class="tw"><table>
+<thead><tr><th>　</th><th>drift 보정 <span class="tag g">굵게</span></th><th>연속 미세보정 <span class="tag g">가늘게</span></th></tr></thead>
+<tbody>
+<tr><td>실행 위치</td><td class="mono">cb_fix() 745–825행</td><td class="mono">_continuous_… 854–925행</td></tr>
+<tr><td>얼마나 자주</td><td class="mono">최대 1초에 한 번</td><td class="mono">GPS가 올 때마다 (5 Hz)</td></tr>
+<tr><td>다루는 어긋남</td><td class="mono">6° 초과</td><td class="mono">0.6° ~ 8°</td></tr>
+<tr><td>한 번에 고치는 양</td><td class="mono">4 % ~ 10 %</td><td class="mono">4 % 고정</td></tr>
+<tr><td>회전 중에도?</td><td>가능 <span class="tag i">45°/s 까지</span></td><td>불가 <span class="tag i">10°/s 까지</span></td></tr>
+<tr><td>직진 요구</td><td>이동 0.35 m · 속도 0.5 m/s</td><td>7개 창 0.8 m · 흔들림 4° 이내 · 전진만</td></tr>
+<tr><td>실질 반응 속도</td><td class="mono">≈ 10 ~ 25 초</td><td class="mono">≈ 5 초</td></tr>
+<tr><td>비상 장치</td><td>60° 초과 &amp; 1.5 m 이동 → <b>즉시 리셋</b></td><td>없음</td></tr>
+</tbody></table></div>
+
+<p>두 통로를 합치면 <b>0.6°부터 60° 이상까지</b> 빈틈 없이 덮인다.
+작은 어긋남은 연속 채널이 조용히 갉아내고, 큰 어긋남은 drift 채널이 붙잡고,
+정말 크게 발산하면(예: 차를 손으로 들어 돌린 경우) 강제 리셋이 처음부터 다시 잡는다.</p>
+
+<h3>회전 중에도 비교할 수 있게 만든 두 가지 보정</h3>
+
+<p>“GPS 궤적 방향 = 차가 향한 방향”은 <b>직선에서만</b> 참이다. 코너에서는 두 가지가 어긋난다.
+코드는 이 둘을 각각 수식으로 되돌려 놓았고, 그래서 회전 중에도 비교가 가능해졌다.</p>
+
+<div class="step"><div class="k">A</div><div>
+<h3>안테나가 차 앞에 달려 있다 — 선회 보상</h3>
+<p class="q">GPS 안테나는 뒷차축보다 <span class="mono">0.865 m</span> 앞에 있다.
+코너를 돌 때 앞쪽에 달린 점은 차체 방향과 다른 쪽으로 휩쓸린다(팔 끝이 더 크게 도는 것과 같다).
+그래서 “안테나가 그릴 것으로 <em>기대되는</em> 방향”을 먼저 계산하고, 그것과 실제 GPS 방향을 비교한다.</p>
+<pre>exp_dir = atan2( v·sinψ + <b>ω·d</b>·cosψ ,  v·cosψ − <b>ω·d</b>·sinψ )
+drift   = exp_dir − gps_dir          <span style="opacity:.6">// d = 0.865 m, ω = 요레이트</span></pre>
+<p class="src">gps_imu.py 779–783행</p>
+<p class="q">이 보상 덕분에 회전 게이트를 12°/s → <b>45°/s</b>로 풀 수 있었다.
+그 전에는 곡선 위주 코스에서 보정이 103회나 건너뛰어졌다(코드 주석의 실측 기록).</p>
+</div></div>
+
+<div class="step"><div class="k">B</div><div>
+<h3>GPS 값은 과거다 — 시간 정렬</h3>
+<p class="q">GPS가 알려주는 위치는 “지금”이 아니라 <b>0.23초쯤 전</b>이다.
+변위를 재는 두 점의 시간 한가운데(0.1초 전)와 수신기 내부 계산 지연(0.13초)이 겹친 값이다.
+그래서 현재 헤딩이 아니라 <b>그 시점의 헤딩</b>을 꺼내 비교한다.</p>
+<pre>t_ref = 0.5·(t_이전 + t_지금) − <b>0.13</b>
+hd_ref, gz_ref = self._att_at(t_ref)   <span style="opacity:.6">// 자세 이력에서 그때 값을 꺼냄</span></pre>
+<p class="src">gps_imu.py 772–773행 · GPS_SOLUTION_LATENCY_S = 0.13</p>
+<p class="q">정렬 전에는 코너에서 회전 방향에 따라 ±7~10°의 <em>가짜</em> drift가 번갈아 발동해 헤딩을 좌우로 흔들었다.
+정렬 후 실측: drift 측정의 흩어짐 <span class="mono">4.36° → 2.26°</span>, 오발동 <span class="mono">14 % → 2 %</span>.</p>
+</div></div>
+
+<div class="note"><b>자기참조 금지.</b> drift를 잴 때 쓰는 GPS 좌표는 <em>안테나 원시 좌표</em>다.
+발행용 좌표는 heading을 써서 뒷차축으로 옮긴 값이라, 그것으로 heading을 보정하면
+자기가 만든 값으로 자기를 채점하는 꼴이 된다. 코드에 그 이유가 주석으로 적혀 있다(759–760행).</div>
+
+<h2><span class="n">05 / 전수조사</span>96 : 4 말고 두 센서가 붙는 자리 — 열 군데</h2>
+
+<p>헤딩 보정은 가장 유명한 결합이지 유일한 결합이 아니다. 코드를 전부 훑어
+“한 센서의 값이 다른 센서의 결과를 바꾸는” 지점을 모았다. 방향에 주목할 것 —
+<span class="tag g">GPS→IMU</span>만 있는 게 아니라 <span class="tag i">IMU→GPS</span>도 있다.</p>
+
+<h3>ⓐ GPS가 IMU를 고친다 — 방향의 기준을 준다</h3>
+<div class="tw"><table>
+<thead><tr><th>결합</th><th class="mono">위치</th><th>무엇이 무엇을 바꾸나</th><th class="mono">세기</th></tr></thead>
+<tbody>
+<tr><td>초기 헤딩 lock</td><td class="mono">687–688</td><td>GPS 궤적 방향이 <span class="mono">yaw_offset</span>을 <b>통째로</b> 정한다</td><td class="mono">100 % · 1회</td></tr>
+<tr><td>drift 보정</td><td class="mono">809</td><td>GPS 방향과 6° 넘게 벌어지면 offset을 민다</td><td class="mono">4 ~ 10 %</td></tr>
+<tr><td>연속 미세보정</td><td class="mono">912</td><td>직선에서 0.6~8° 어긋남을 계속 갉아낸다</td><td class="mono">4 %</td></tr>
+<tr><td>강제 리셋</td><td class="mono">797–799</td><td>60° 넘게 발산하면 헤딩을 GPS 값으로 다시 잡는다</td><td class="mono">100 %</td></tr>
+</tbody></table></div>
+
+<h3>ⓑ IMU가 GPS를 고친다 — 잘 안 알려진 반대 방향</h3>
+<div class="tw"><table>
+<thead><tr><th>결합</th><th class="mono">위치</th><th>무엇이 무엇을 바꾸나</th><th class="mono">세기</th></tr></thead>
+<tbody>
+<tr><td><b>안테나 → 뒷차축 투영</b></td><td class="mono">613–614</td><td>IMU 헤딩 방향으로 GPS 좌표를 <b>0.865 m 뒤로 옮긴다</b></td><td class="mono">100 % · 매 fix</td></tr>
+<tr><td>GPS 속도의 부호</td><td class="mono">517–518</td><td>궤적 방향과 헤딩을 비교해 <b>전진인지 후진인지</b> 판정</td><td class="mono">100 %</td></tr>
+</tbody></table></div>
+
+<pre>rear_x = curr_x − <b>0.865</b> · cos(<b>ψ</b>)      <span style="opacity:.6">// ψ = IMU가 만든 헤딩</span>
+rear_y = curr_y − <b>0.865</b> · sin(<b>ψ</b>)</pre>
+<p class="src">gps_imu.py 613–614행 · 헤딩 고정 후에만 적용, 고정 전에는 원시 좌표</p>
+
+<div class="note"><b>그래서 <span class="mono">/ego_state</span>의 위치는 “GPS 값”이 아니다.</b>
+GPS 안테나는 지붕 앞쪽에 달려 있는데, Pure Pursuit 기하와 DR 적분은 모두 <b>뒷차축</b>이 기준이다.
+그래서 안테나 좌표를 헤딩 방향으로 0.865 m 뒤로 밀어 뒷차축 위치를 만든다.
+즉 <b>헤딩이 틀리면 위치도 옆으로 틀어진다</b> — 헤딩 5° 오차면 위치가 0.865×sin5° ≈ 7.5 cm 어긋난다.
+두 센서가 서로 물려 있다는 것을 가장 잘 보여 주는 자리다.</div>
+
+<h3>ⓒ 엔코더가 끼어드는 자리</h3>
+<div class="tw"><table>
+<thead><tr><th>결합</th><th class="mono">위치</th><th>무엇이 무엇을 바꾸나</th></tr></thead>
+<tbody>
+<tr><td>자이로 바이어스 학습</td><td class="mono">459–464</td><td>엔코더가 “정지”라고 할 때만 자이로의 치우침을 학습한다</td></tr>
+<tr><td>DR 위치 적분</td><td class="mono">420–431</td><td>엔코더 거리 × IMU 방향 = 위치. 두 센서의 곱</td></tr>
+<tr><td>선회보상 기대방향</td><td class="mono">779–783</td><td>엔코더 속도 v와 자이로 ω로 “GPS가 이렇게 보여야 한다”를 만든 뒤 실제 GPS와 비교</td></tr>
+<tr><td>drift 보정 게이트</td><td class="mono">768</td><td>GPS 이동 0.35 m <b>그리고</b> 엔코더 속도 0.5 m/s — 둘 다 만족해야 보정</td></tr>
+</tbody></table></div>
+
+<pre>exp_dir = atan2( <b>v</b>·sinψ + <b>ω</b>·d·cosψ ,  <b>v</b>·cosψ − <b>ω</b>·d·sinψ )
+          <span style="opacity:.6">// v=엔코더 속도, ω=자이로 요레이트, ψ=헤딩, d=0.865 m</span>
+drift   = exp_dir − gps_dir</pre>
+<p class="src">gps_imu.py 779–783행 · 세 센서가 한 식에 모두 들어가는 유일한 자리</p>
+
+<h3>ⓓ driving.py에도 두 번째 융합층이 있다</h3>
+<p>여기가 의외의 지점이다. driving.py는 gps_imu가 만들어 준 헤딩만 받아 쓰는 게 아니라,
+<b>IMU를 직접 한 번 더 구독한다.</b></p>
+
+<pre>self.create_subscription(Imu, <b>"/imu/data"</b>, self.cb_imu, 20)   <span style="opacity:.6">// 예측용 요레이트</span></pre>
+<p class="src">driving.py 777행</p>
+
+<div class="tw"><table>
+<thead><tr><th>결합</th><th class="mono">위치</th><th>무엇이 무엇을 바꾸나</th></tr></thead>
+<tbody>
+<tr><td>미래 자세 예측</td><td class="mono">1361</td><td>IMU 요레이트로 τ초 뒤 헤딩을 계산 — 모든 오차의 기준점이 바뀐다</td></tr>
+<tr><td>IMU 없을 때 폴백</td><td class="mono">1365–1367</td><td>IMU가 0.4초 이상 끊기면 <span class="mono">ω = v·tan(δ)/L</span>로 <b>조향 명령에서 요레이트를 지어낸다</b></td></tr>
+<tr><td>속도 계획 보수화</td><td class="mono">1593</td><td>IMU가 끊기면 응답 상한 ω<sub>n</sub>을 0.95 → 0.80으로 낮춰 <b>더 천천히</b> 달린다</td></tr>
+<tr><td>DR 감속</td><td class="mono">933, 1670</td><td>상태 문구의 “[DR중]” 글자를 읽고 목표속도를 <b>0.6배</b>로 낮춘다</td></tr>
+<tr><td>속도 출처 교체</td><td class="mono">917–920</td><td>엔코더가 0.5초 끊기면 <span class="mono">/ego_state</span>의 속도(=GPS 속도)로 갈아탄다</td></tr>
+</tbody></table></div>
+
+<div class="key"><b>정리하면</b>
+두 센서가 붙는 방식은 “값을 섞는다” 한 종류가 아니다. 이 코드에는 네 가지 결합이 다 있다 —
+<b>기준 제공</b>(GPS가 IMU에 북쪽을 알려 줌), <b>좌표 변환</b>(IMU가 GPS 위치를 옮김),
+<b>게이트</b>(엔코더가 “지금 학습해도 된다”고 허락), <b>폴백</b>(하나가 죽으면 다른 하나가 대신함).
+96 : 4는 이 중 첫 번째 종류의 대표 사례일 뿐이다.</div>
+
+<h2><span class="n">06 / 비상</span>GPS가 끊기면 — DR</h2>
+
+<figure class="fbox">
+<svg viewBox="0 0 760 210" role="img" aria-label="GPS 정상 상태에서 1.5초 미수신이면 DR로 전환해 엔코더와 자이로로 위치를 추정하고, GPS가 돌아오면 3초에 걸쳐 부드럽게 복귀한다">
+<defs>
+  <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+  </marker>
+</defs>
+<g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">
+  <rect x="16" y="60" width="180" height="62" fill="none" stroke="#12695C" stroke-width="2"/>
+  <text x="106" y="83" text-anchor="middle" fill="#12695C" font-size="13">RTK 정상</text>
+  <text x="106" y="100" text-anchor="middle" fill="#12695C" font-size="10">위치 = GPS 그대로</text>
+  <text x="106" y="114" text-anchor="middle" fill="#12695C" font-size="10">헤딩 = IMU + offset</text>
+
+  <line x1="196" y1="91" x2="292" y2="91" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <text x="244" y="82" text-anchor="middle" font-size="10.5">1.5초 무소식</text>
+
+  <rect x="292" y="60" width="180" height="62" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="5 3"/>
+  <text x="382" y="83" text-anchor="middle" font-size="13">DR (추측항법)</text>
+  <text x="382" y="100" text-anchor="middle" font-size="10">위치 = 엔코더 × 방향 적분</text>
+  <text x="382" y="114" text-anchor="middle" font-size="10">헤딩 = 자이로 적분</text>
+
+  <line x1="472" y1="91" x2="568" y2="91" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <text x="520" y="82" text-anchor="middle" font-size="10.5">GPS 복귀</text>
+
+  <rect x="568" y="60" width="176" height="62" fill="none" stroke="#12695C" stroke-width="1.5"/>
+  <text x="656" y="83" text-anchor="middle" fill="#12695C" font-size="12.5">3초 블렌딩</text>
+  <text x="656" y="100" text-anchor="middle" font-size="10">DR 위치 → GPS 위치</text>
+  <text x="656" y="114" text-anchor="middle" font-size="10">코사인 곡선으로 서서히</text>
+
+  <path d="M656 122 L656 160 L106 160 L106 126" fill="none" stroke="#12695C" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <text x="381" y="176" text-anchor="middle" fill="#12695C" font-size="10.5">완료 → RTK 정밀 주행 복귀</text>
+
+  <text x="382" y="34" text-anchor="middle" font-size="10.5" opacity=".75">DR 중에는 driving.py가 속도를 0.6배로 낮춘다</text>
+</g>
+</svg>
+<figcaption><b>GPS가 사라져도 차는 멈추지 않는다.</b> 바퀴가 얼마나 굴렀는지(엔코더)와 얼마나 돌았는지(자이로)만
+알면 위치를 이어서 그릴 수 있다. 다만 오차가 계속 쌓이므로 오래 버틸 수는 없고, GPS가 돌아오면
+위치를 순간이동시키지 않고 3초에 걸쳐 부드럽게 옮긴다 — 갑자기 튀면 CTE가 튀고 핸들이 꺾인다.</figcaption>
+</figure>
+
+<pre>self.heading += math.degrees(<b>corrected_gyro_z</b>) * dt     <span style="opacity:.6">// 자이로로 방향 유지</span>
+dx = smooth_speed * math.cos(head_rad) * dt          <span style="opacity:.6">// 엔코더로 위치 적분</span>
+dy = smooth_speed * math.sin(head_rad) * dt</pre>
+<p class="src">gps_imu.py 420–428행 · cb_encoder() 안, DR일 때만 실행</p>
+
+<p>여기서 자이로 값은 <span class="mono">raw_gyro − gyro_z_bias</span>다. 정지 중(속도 &lt; 0.10 m/s, 회전 &lt; 2°/s)에
+자이로가 조용히 내보내는 치우침을 스스로 학습해 빼 둔 값이라, DR이 길어져도 방향이 한쪽으로 흐르는 속도가 느려진다.</p>
+
+<h2><span class="n">07 / 도착</span>그 숫자가 조향각이 되기까지 — 코드로 따라가기</h2>
+
+<p>융합 결과는 배열 하나로 driving.py에 건너간다. 헤딩은 <b>5번째 칸</b>이다.</p>
+
+<pre>state.data = [위도, 경도, x, y, <b>heading</b>, 속도, 0.0, 피치, 노면]
+             [0]   [1]   [2] [3]  <b>[4]</b>     [5]   [6]  [7]  [8]</pre>
+<p class="src">gps_imu.py 1051–1053행 → driving.py 910행 <span class="mono">self.heading = d[4]</span></p>
+
+<p>여기서부터 20 Hz 제어 루프 안에서 벌어지는 일을 순서대로 본다.
+헤딩(ψ)이 어디에 들어가는지만 굵게 표시했다.</p>
+
+<div class="step"><div class="k">1</div><div>
+<h3>τ초 뒤의 나를 계산한다 — 지연 보상</h3>
+<pre>tau = self.PREDICT_HORIZON_S                    <span style="opacity:.6">// 0.50초</span>
+omega_z = self.imu_gyro_z − self.gyro_bias_z    <span style="opacity:.6">// IMU 요레이트(직접 구독)</span>
+dpsi    = omega_z * tau
+psi_mid = <b>psi</b> + 0.5 * dpsi
+adv     = self.current_speed_ms * tau
+self.ctrl_lat = self.current_lat + degrees(adv * sin(psi_mid) / R)
+self.ctrl_lon = self.current_lon + degrees(adv * cos(psi_mid) / (R * cos(lat)))
+<b>psi = psi + dpsi</b>                              <span style="opacity:.6">// 이후 계산은 전부 '예측 헤딩' 기준</span></pre>
+<p class="src">driving.py 1356–1374행</p>
+<p class="q">핸들을 돌리라고 명령해도 차가 실제로 돌기까지 시간이 걸린다. 그래서 “지금의 나”가 아니라
+“0.5초 뒤의 나”를 먼저 계산하고, <b>그 자세를 기준으로 모든 오차를 잰다</b>.
+위치는 반 바퀴 평균 방향(<span class="mono">psi_mid</span>)으로 전진시키고, 헤딩은 전체 회전량을 더한다.</p>
+</div></div>
+
+<div class="step"><div class="k">2</div><div>
+<h3>후진 구간이면 헤딩을 뒤집는다</h3>
+<pre>cur_dir = self.waypoints[self.wp_idx]['direction']
+is_rev  = (cur_dir == −1)
+<b>psi_eff = (psi + π) if is_rev else psi</b></pre>
+<p class="src">driving.py 1380–1382행</p>
+<p class="q">후진할 때 차는 뒤를 향해 간다. 진행 방향 기준으로 계산해야 좌우 판단이 맞으므로
+헤딩을 180° 돌린 <span class="mono">psi_eff</span>를 이후 모든 식에 쓴다.</p>
+</div></div>
+
+<div class="step"><div class="k">3</div><div>
+<h3>CTE — 경로에서 옆으로 얼마나 벗어났나</h3>
+<pre>for i in range(start, end):                     <span style="opacity:.6">// 앞뒤 웨이포인트 28개만 검사</span>
+    x0,y0 = wp[i]   − 내 위치      (미터로 변환)
+    x1,y1 = wp[i+1] − 내 위치
+    vx,vy = x1−x0, y1−y0                        <span style="opacity:.6">// 선분 벡터</span>
+    t  = clamp( −(x0·vx + y0·vy) / (vx²+vy²), 0, 1)   <span style="opacity:.6">// 수선의 발 위치</span>
+    px,py = x0 + t·vx, y0 + t·vy                <span style="opacity:.6">// 경로 위 가장 가까운 점</span>
+    ...가장 가까운 것 선택 → best_x, best_y
+
+<b>cte = −best_x·sin(psi_eff) + best_y·cos(psi_eff)</b>
+if is_rev: cte = −cte</pre>
+<p class="src">driving.py 1192–1210행 · compute_segment_cte()</p>
+<p class="q">경로 위 가장 가까운 점까지의 벡터를 <b>차량 좌표계로 회전</b>시켜 옆방향 성분만 뽑는 식이다.
+회전에 쓰는 각도가 바로 헤딩. 헤딩이 틀리면 “옆”이라는 방향의 정의 자체가 틀어진다 —
+<b>이것이 헤딩 정확도가 CTE의 핵심인 이유다.</b></p>
+</div></div>
+
+<div class="step"><div class="k">4</div><div>
+<h3>lead — 지금 방향으로 계속 가면 얼마나 더 벌어질까</h3>
+<pre>path_psi = atan2(seg_dy, seg_dx)                <span style="opacity:.6">// 지금 선분이 향한 방향</span>
+<b>he       = path_psi − psi_eff</b>                   <span style="opacity:.6">// 헤딩오차 θe</span>
+lead_raw = <b>0.876</b> * sin(he)                     <span style="opacity:.6">// 휠베이스 0.73 × 1.2</span>
+
+cte_ctrl = clamp(cte + cte_lead, −4, 4)         <span style="opacity:.6">// 제어에 실제로 쓰는 오차</span></pre>
+<p class="src">driving.py 1522–1538행</p>
+<p class="q">위치는 맞는데 방향이 비뚤면 아직 안 벌어졌어도 곧 벌어진다. 그 미래분을 미리 오차에 얹는다.
+시간이 아니라 <b>거리(휠베이스)</b>로 앞을 보기 때문에 속도가 변해도 자동으로 맞는다.</p>
+</div></div>
+
+<div class="step"><div class="k">5</div><div>
+<h3>Pure Pursuit — 앞의 목표점을 향하는 각도</h3>
+<pre>dx, dy = 목표점 − 내 위치        (미터)
+lx =  dx·cos(<b>psi_eff</b>) + dy·sin(<b>psi_eff</b>)      <span style="opacity:.6">// 차 기준 '앞쪽' 거리</span>
+ly = −dx·sin(<b>psi_eff</b>) + dy·cos(<b>psi_eff</b>)      <span style="opacity:.6">// 차 기준 '옆쪽' 거리</span>
+alpha    = atan2(ly, lx)                        <span style="opacity:.6">// 목표점을 바라보는 각</span>
+pp_steer = degrees( atan2(2·L·sin(alpha), LFD) )</pre>
+<p class="src">driving.py 1782–1803행</p>
+<p class="q">여기서도 회전에 헤딩이 들어간다. 목표점의 지도 좌표를 <b>차량 기준으로 옮기는</b> 데 필요하기 때문이다.
+이 결과가 조향각의 큰 줄기(약 90 %)를 만든다.</p>
+</div></div>
+
+<div class="step"><div class="k">6</div><div>
+<h3>PID — 남은 오차를 마저 지운다</h3>
+<pre>Kp, Ki, Kd = lookup_gains(v)                    <span style="opacity:.6">// 속도별 게인표에서 보간</span>
+
+if cte·prev_cte &lt; 0: cte_integral *= 0.35       <span style="opacity:.6">// 좌우 뒤집히면 적분 감쇠</span>
+cte_integral += cte * loop_dt
+cte_integral  = clamp(cte_integral, ±6.0)       <span style="opacity:.6">// 적분 폭주 방지</span>
+
+p_term = Kp * <b>cte_ctrl</b>                          <span style="opacity:.6">// 지연보상된 오차</span>
+i_term = Ki * cte_integral
+d_term = Kd * d_term_lpf * 0.20
+pid_steer = clamp(p_term + i_term + d_term, ±9.0)
+
+<b>raw_steer = pp_steer + pid_steer</b></pre>
+<p class="src">driving.py 1809–1840행</p>
+<p class="q">Pure Pursuit는 “목표점을 향한다”만 알 뿐, 바람이나 좌우 무게 차이로 계속 한쪽에 치우치는 것은 못 고친다.
+그 남은 몫을 PID가 맡는다. ±9°로 묶는 이유는, PID가 기하 계산(PP)을 압도하면
+경로를 따라가는 게 아니라 오차만 쫓아가는 차가 되기 때문이다.</p>
+</div></div>
+
+<div class="step"><div class="k">7</div><div>
+<h3>다듬기 — 부드럽게, 한계 안에서</h3>
+<pre>smoothed = raw_steer·<b>0.5</b> + prev_steer·<b>0.5</b>          <span style="opacity:.6">// 절반씩 섞어 부드럽게</span>
+step_limit = <b>1.3°</b>(직선) / <b>2.5~3.2°</b>(코너, 속도비례)  <span style="opacity:.6">// 한 틱에 변할 수 있는 폭</span>
+if |delta| &gt; step_limit: 잘라냄                 <span style="opacity:.6">// 슬루레이트 제한</span>
+clamped = clamp(final_steer, ±20°)              <span style="opacity:.6">// 물리 한계</span>
+clamped *= steer_authority                      <span style="opacity:.6">// 저속에선 권한 축소</span></pre>
+<p class="src">driving.py 1869–1897행</p>
+<p class="q">계산된 각도를 그대로 보내면 서보가 덜컥거리고 차가 흔들린다.
+급변을 막고(슬루), 물리적으로 불가능한 각도를 자르고(클램프),
+정지에 가까울 때는 조향을 약하게 실어(권한 램프) 출발 순간의 덜컥거림을 없앤다.</p>
+</div></div>
+
+<div class="key"><b>헤딩 1도가 얼마인가</b>
+코드 주석이 직접 계산해 놓았다 — <span class="mono">IMU와 GPS 실제 방향의 오차 3~6°가 핵심 CTE 원인.
+CTE = sin(5°) × LFD 5 m = 0.44 m</span>.
+방향을 5° 잘못 알면 경로에서 44 cm 벗어난 채 “나는 잘 가고 있다”고 믿는다.
+게다가 5장에서 본 것처럼 헤딩은 <b>위치 좌표까지</b> 7.5 cm 옆으로 밀어 놓는다.
+융합 정밀도를 2° 이하로 끌어내리는 것이 gps_imu.py 전체의 목표였고,
+그래서 게인을 0.10에서 0.04로 <em>낮추고</em> 시간 정렬과 선회 보상을 넣었다.</div>
+
+<h2><span class="n">08 / 다음 단계</span>카메라를 붙이려는 자리 — 이미 설계돼 있었다</h2>
+
+<p>DR 중에 GPS를 끊고 IMU + 차선 인식으로 위치·헤딩을 보정하려는 계획은
+<b>이 패키지의 이전 버전에 이미 구현되어 있었다.</b>
+현재 GitHub 버전(v6)에서는 빠졌지만, 로컬 사본에 <span class="mono">camera_fusion.py</span>(319행)와
+<span class="mono">lane_camera_bridge.py</span>(213행)가 남아 있다. 설계 원칙이 파일 머리말에 그대로 적혀 있다.</p>
+
+<pre>· ego_state(gps_imu)는 성역 — 위치·헤딩 융합을 건드리지 않는다.
+· 카메라는 driving의 "CTE 가중융합(PID 채널)"과 "속도 캡"으로만 개입한다.
+· Pure Pursuit(조향의 94%)는 계속 GPS 경로를 조준한다. 카메라는 발밑 이탈량만.
+· cam_enable=False(기본) = 섀도 모드: 융합·캡을 전혀 적용하지 않고 로깅만</pre>
+<p class="src">camera_fusion.py 머리말</p>
+
+<h3>두 갈래로 들어가게 설계돼 있다</h3>
+<div class="tw"><table>
+<thead><tr><th>경로</th><th>무엇을 바꾸나</th><th class="mono">평상시</th><th class="mono">DR 중</th></tr></thead>
+<tbody>
+<tr><td>CTE 가중융합</td><td><span class="mono">cte = w·카메라CTE + (1−w)·GPS CTE</span></td><td class="mono">w = 0.40</td><td class="mono">w = 0.90</td></tr>
+<tr><td>DR 헤딩 보정</td><td>차선+지도접선으로 만든 절대헤딩으로 자이로 drift 상쇄</td><td>사용 안 함</td><td class="mono">게인 0.08</td></tr>
+</tbody></table></div>
+
+<pre>drift = normalize_angle(self.heading − self.cam_head_ref)
+corr  = drift * <b>0.08</b>
+self.heading    −= corr
+self.yaw_offset −= corr        <span style="opacity:.6">// 둘을 같은 양만큼 → DR 종료 시 정합 유지</span></pre>
+<p class="src">이전 버전 gps_imu.py 438–442행 · <span class="mono">_apply_cam_heading_correction()</span>, DR 중에만 호출</p>
+
+<p>게이트는 GPS 보정과 같은 철학이다 — 참조가 0.5초 이내로 신선할 것, 품질 0.4 이상,
+회전 10°/s 이하(직선일 때만), 어긋남이 0.5°~15° 사이일 것, 0.5초에 한 번만.
+카메라가 오검출하면 어긋남이 15°를 넘어 <b>자동으로 무시된다.</b></p>
+
+<div class="note"><b>돌아올 때 확인할 것 두 가지.</b>
+① <span class="mono">w = 0.90</span>은 DR에서 횡방향을 사실상 카메라에 넘긴다는 뜻이다 —
+차선이 사라지는 구간(교차로, 지워진 선)의 폴백이 있는지.
+② 카메라 헤딩 보정은 <span class="mono">heading</span>과 <span class="mono">yaw_offset</span>을 <b>함께</b> 움직인다.
+GPS 보정이 offset만 건드리는 것과 다른데, DR 중에는 heading이 자이로로 직접 굴러가기 때문에
+둘을 같이 밀어야 DR이 끝나고 <span class="mono">IMU + offset</span> 경로로 복귀할 때 값이 튀지 않는다. 이 정합은 잘 잡혀 있다.</div>
+
+
+<h2><span class="n">09 / 요약</span>숫자로 다시 보기</h2>
+
+<div class="mini">
+  <div><b>0.04</b><span>한 번에 고치는 비율</span></div>
+  <div><b>5 s</b><span>연속 보정 반응 시간</span></div>
+  <div><b>6°</b><span>drift 보정 발동 문턱</span></div>
+  <div><b>60°</b><span>강제 리셋 문턱</span></div>
+  <div><b>1.0 m</b><span>초기 헤딩 lock 이동거리</span></div>
+  <div><b>0.865 m</b><span>안테나 → 뒷차축</span></div>
+  <div><b>0.13 s</b><span>GPS 계산 지연</span></div>
+  <div><b>1.5 s</b><span>DR 전환 문턱</span></div>
+  <div><b>3.0 s</b><span>GPS 복귀 블렌딩</span></div>
+  <div><b>200°/s</b><span>헤딩 급변 클램프</span></div>
+</div>
+
+<p>한 문장으로 줄이면 이렇다 —
+<b>지도 기준은 GPS가 처음 한 번 정하고, 그 뒤로는 IMU가 매 순간의 방향을 만들며,
+GPS는 5초짜리 느린 손길로 그 기준이 흘러가지 않게 잡아 준다.</b>
+그리고 그 방향 하나가 CTE·lead·Pure Pursuit 세 계산의 회전축이자
+발행 좌표를 뒷차축으로 옮기는 기준이 되어, 최종 조향각과 위치를 동시에 결정한다.</p>
+
+<p class="q">두 센서의 결합을 “값을 몇 대 몇으로 섞는다”로만 이해하면 절반만 본 것이다.
+이 코드에서 실제로 벌어지는 일은 <b>기준 제공 · 좌표 변환 · 게이트 · 폴백</b> 네 가지이고,
+96 : 4는 그중 첫 번째의 대표 사례일 뿐이다.</p>
+
+<footer>
+기준 소스 — dododohyeon614-cloud/white_ws, 커밋 bae094d · gps_imu.py 1142행, driving.py 1944행.
+줄 번호는 모두 이 커밋 기준.
+</footer>
+</div>
+
+</body>
+</html>
