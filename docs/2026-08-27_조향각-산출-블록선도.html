@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>조향각 산출 블록선도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#EEF0F2; --card:#FAFBFC; --sunk:#E3E6EA;
+  --ink:#151A20; --ink2:#3D4750; --faint:#78838D; --line:#CDD4DA; --hair:#E0E5E9;
+  --imu:#6B4A9C; --gps:#12695C; --acc:#9A4A28; --warn:#8A6410;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#12151A; --card:#1A1F25; --sunk:#232930;
+  --ink:#E4E8EC; --ink2:#B2BCC5; --faint:#7F8A94; --line:#2D343B; --hair:#242A31;
+  --imu:#B294E0; --gps:#5FBCA9; --acc:#E09070; --warn:#D3A94F;
+}}
+:root[data-theme="dark"]{
+  --paper:#12151A; --card:#1A1F25; --sunk:#232930;
+  --ink:#E4E8EC; --ink2:#B2BCC5; --faint:#7F8A94; --line:#2D343B; --hair:#242A31;
+  --imu:#B294E0; --gps:#5FBCA9; --acc:#E09070; --warn:#D3A94F;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans KR",system-ui,sans-serif;font-size:15.5px;line-height:1.72;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:62rem;margin:0 auto;padding:0 1.4rem 5rem}
+h1,h2{font-family:"Gothic A1",sans-serif;letter-spacing:-.02em;text-wrap:balance}
+code,.mono{font-family:"IBM Plex Mono",monospace}
+header{padding:3rem 0 1.3rem;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--faint);margin-bottom:.9rem}
+h1{font-size:clamp(1.8rem,4.6vw,2.5rem);font-weight:800;margin:0 0 .6rem;line-height:1.2}
+.lede{color:var(--ink2);margin:0;max-width:40rem}
+h2{font-size:1.24rem;font-weight:800;margin:3rem 0 .2rem;padding-bottom:.4rem;
+  border-bottom:2px solid var(--ink)}
+figure{margin:2rem 0 0;padding:0}
+.scroll{overflow-x:auto;background:var(--card);border:1px solid var(--hair);padding:1.2rem .8rem}
+.scroll svg{display:block;min-width:52rem;width:100%;height:auto}
+figcaption{font-size:.84rem;color:var(--faint);margin-top:.8rem;line-height:1.6;
+  border-left:2px solid var(--line);padding-left:.8rem;max-width:52rem}
+.tw{overflow-x:auto;margin:1.2rem 0}
+table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:36rem}
+th,td{text-align:left;padding:.52rem .7rem;border-bottom:1px solid var(--hair);vertical-align:top}
+th{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);
+  border-bottom:1px solid var(--line);font-weight:500}
+td.m,th.m{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:hover{background:var(--card)}
+.key{background:var(--card);border:1px solid var(--line);padding:1rem 1.1rem;margin:1.5rem 0}
+.key b{display:block;font-family:"Gothic A1",sans-serif;font-weight:800;margin-bottom:.3rem}
+p{margin:.75rem 0}
+.legend{display:flex;gap:1.4rem;flex-wrap:wrap;font-size:.8rem;color:var(--ink2);
+  margin:.9rem 0 0;font-family:"IBM Plex Mono",monospace}
+.legend span{display:flex;align-items:center;gap:.4rem}
+.sw{width:1.6rem;height:0;border-top-width:2px;border-top-style:solid;display:inline-block}
+footer{margin-top:3.5rem;padding-top:1.1rem;border-top:1px solid var(--line);
+  font-family:"IBM Plex Mono",monospace;font-size:.75rem;color:var(--faint);line-height:1.8}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">white · driving.py · 20 Hz 제어 루프 한 바퀴</div>
+  <h1>조향각 산출 블록선도</h1>
+  <p class="lede">센서 세 개와 경로 파일이 들어가서 조향각 하나가 나오기까지.
+  가운데 굵은 줄기가 조향의 본류이고, 옆으로 붙는 것은 전부 그 줄기를 다듬는 가지다.</p>
+</header>
+
+<figure>
+<div class="scroll">
+<svg viewBox="0 0 900 830" role="img" aria-label="GPS·IMU·엔코더와 경로 파일이 위치와 헤딩을 만들고, 0.5초 뒤 자세를 예측한 뒤 목표점을 골라 세 가지 오차를 만들며, 그 오차가 Pure Pursuit과 PID를 거쳐 조향각이 되어 차량으로 나가고 다시 센서로 돌아오는 닫힌 고리">
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+  </marker>
+  <marker id="af" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#9A4A28"/>
+  </marker>
+</defs>
+<g font-family="IBM Plex Sans KR, sans-serif" fill="currentColor">
+
+<!-- ══ 입력 ══ -->
+<rect x="40" y="24" width="560" height="56" fill="none" stroke="currentColor" stroke-width="1.2"/>
+<line x1="180" y1="24" x2="180" y2="80" stroke="currentColor" stroke-width=".7" opacity=".45"/>
+<line x1="320" y1="24" x2="320" y2="80" stroke="currentColor" stroke-width=".7" opacity=".45"/>
+<line x1="460" y1="24" x2="460" y2="80" stroke="currentColor" stroke-width=".7" opacity=".45"/>
+<text x="110" y="47" text-anchor="middle" font-size="13" fill="#12695C">GPS</text>
+<text x="110" y="66" text-anchor="middle" font-size="10.5" fill="#12695C">5 Hz · 위도·경도</text>
+<text x="250" y="47" text-anchor="middle" font-size="13" fill="#6B4A9C">IMU</text>
+<text x="250" y="66" text-anchor="middle" font-size="10.5" fill="#6B4A9C">50 Hz · yaw, 요레이트</text>
+<text x="390" y="47" text-anchor="middle" font-size="13">엔코더</text>
+<text x="390" y="66" text-anchor="middle" font-size="10.5">100 Hz · 속도 v</text>
+<text x="530" y="47" text-anchor="middle" font-size="13">경로 CSV</text>
+<text x="530" y="66" text-anchor="middle" font-size="10.5">웨이포인트 목록</text>
+
+<line x1="320" y1="80" x2="320" y2="116" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+<!-- ══ ① 위치·헤딩 확정 ══ -->
+<rect x="40" y="116" width="560" height="72" fill="none" stroke="currentColor" stroke-width="1.6"/>
+<text x="58" y="139" font-size="13.5" font-weight="600">① 내 위치와 방향 확정</text>
+<text x="58" y="160" font-size="11.5" fill="#12695C">위치 = GPS 안테나 − 0.865 m·[cos ψ, sin ψ]   (뒷차축으로 투영)</text>
+<text x="58" y="178" font-size="11.5" fill="#6B4A9C">헤딩 ψ = raw_imu_yaw_unwrap + yaw_offset</text>
+<text x="586" y="131" text-anchor="end" font-size="10" fill="#78838D">gps_imu.py</text>
+
+<!-- 96:4 보정 루프 -->
+<rect x="648" y="116" width="222" height="72" fill="none" stroke="#9A4A28" stroke-width="1.2" stroke-dasharray="5 3"/>
+<text x="759" y="139" text-anchor="middle" font-size="12" font-weight="600" fill="#9A4A28">헤딩 미세보정 · 5 Hz</text>
+<text x="759" y="158" text-anchor="middle" font-size="10.5" fill="#9A4A28">GPS 궤적 방향과 비교 → drift</text>
+<text x="759" y="176" text-anchor="middle" font-size="10.5" fill="#9A4A28">yaw_offset −= drift × 0.04</text>
+<line x1="600" y1="138" x2="644" y2="138" stroke="#9A4A28" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#af)"/>
+<text x="622" y="131" text-anchor="middle" font-size="9" fill="#9A4A28">ψ</text>
+<line x1="648" y1="170" x2="604" y2="170" stroke="#9A4A28" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#af)"/>
+<text x="626" y="163" text-anchor="middle" font-size="9" fill="#9A4A28">4 %</text>
+
+<line x1="320" y1="188" x2="320" y2="224" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+<!-- ══ ② 예측 ══ -->
+<rect x="40" y="224" width="560" height="66" fill="none" stroke="currentColor" stroke-width="1.6"/>
+<text x="58" y="247" font-size="13.5" font-weight="600">② 0.5초 뒤의 나로 옮겨 앉기 — 지연 보상</text>
+<text x="58" y="268" font-size="11.5" class="mono">ψ′ = ψ + ω·τ   ·   위치′ = 위치 + v·τ·[cos, sin](ψ + ½ω·τ)</text>
+<text x="58" y="283" font-size="10.5" fill="#78838D">τ = 0.50 s · ω = IMU 요레이트 — 이후 모든 오차는 이 예측 자세에서 잰다</text>
+
+<line x1="320" y1="290" x2="320" y2="326" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+<!-- LFD 옆가지 -->
+<rect x="628" y="308" width="232" height="66" fill="none" stroke="currentColor" stroke-width="1.2"/>
+<text x="744" y="330" text-anchor="middle" font-size="12" font-weight="600">전방주시거리 LFD</text>
+<text x="744" y="348" text-anchor="middle" font-size="10.5">속도표(2.3~2.8 m) ∩ 곡률캡</text>
+<text x="744" y="364" text-anchor="middle" font-size="10.5" fill="#78838D">빠를수록 멀리 · 굽을수록 짧게</text>
+<line x1="628" y1="341" x2="604" y2="341" stroke="currentColor" stroke-width="1.2" marker-end="url(#a)"/>
+<path d="M744 374 L744 570 L620 570 L620 600 L604 600" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#a)"/>
+
+<!-- ══ ③ 목표 선정 ══ -->
+<rect x="40" y="326" width="560" height="72" fill="none" stroke="currentColor" stroke-width="1.6"/>
+<text x="58" y="349" font-size="13.5" font-weight="600">③ 어느 점을 향할 것인가</text>
+<text x="58" y="370" font-size="11.5">현재 구간 wp_idx — 가장 가까운 점, 단 <tspan class="mono">lx &gt; −2 m</tspan> 로 앞쪽인지 확인</text>
+<text x="58" y="388" font-size="11.5">목표점 — 앞쪽(<tspan class="mono">lx &gt; 0</tspan>)이면서 거리가 <tspan class="mono">LFD</tspan> 이상인 첫 웨이포인트</text>
+
+<line x1="320" y1="398" x2="320" y2="428" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+<!-- ══ ④ 오차 3종 ══ -->
+<rect x="40" y="428" width="560" height="118" fill="none" stroke="currentColor" stroke-width="1.6"/>
+<text x="58" y="450" font-size="13.5" font-weight="600">④ 오차 세 가지 — 모두 헤딩 ψ′를 축으로 잰다</text>
+
+<rect x="56" y="462" width="168" height="70" fill="none" stroke="currentColor" stroke-width="1" opacity=".8"/>
+<text x="140" y="482" text-anchor="middle" font-size="12" font-weight="600">CTE</text>
+<text x="140" y="499" text-anchor="middle" font-size="9.5" class="mono">−bx·sinψ + by·cosψ</text>
+<text x="140" y="516" text-anchor="middle" font-size="10">경로에서 옆으로</text>
+<text x="140" y="528" text-anchor="middle" font-size="10">벗어난 거리 [m]</text>
+
+<rect x="240" y="462" width="168" height="70" fill="none" stroke="currentColor" stroke-width="1" opacity=".8"/>
+<text x="324" y="482" text-anchor="middle" font-size="12" font-weight="600">lead (θe)</text>
+<text x="324" y="499" text-anchor="middle" font-size="9.5" class="mono">0.876 · sin(경로각 − ψ)</text>
+<text x="324" y="516" text-anchor="middle" font-size="10">방향이 틀어져 앞으로</text>
+<text x="324" y="528" text-anchor="middle" font-size="10">벌어질 양 [m]</text>
+
+<rect x="424" y="462" width="160" height="70" fill="none" stroke="currentColor" stroke-width="1" opacity=".8"/>
+<text x="504" y="482" text-anchor="middle" font-size="12" font-weight="600">α</text>
+<text x="504" y="499" text-anchor="middle" font-size="9.5" class="mono">atan2(ly, lx)</text>
+<text x="504" y="516" text-anchor="middle" font-size="10">목표점을 바라보는</text>
+<text x="504" y="528" text-anchor="middle" font-size="10">각도 [rad]</text>
+
+<!-- 오차 → 제어기 -->
+<path d="M140 532 L140 560 L232 560 L232 580" fill="none" stroke="currentColor" stroke-width="1.3"/>
+<path d="M324 532 L324 560 L232 560" fill="none" stroke="currentColor" stroke-width="1.3"/>
+<circle cx="232" cy="560" r="3" fill="currentColor"/>
+<text x="180" y="554" text-anchor="middle" font-size="10">cte + lead</text>
+<line x1="232" y1="560" x2="232" y2="582" stroke="currentColor" stroke-width="1.3" marker-end="url(#a)"/>
+<line x1="504" y1="532" x2="504" y2="582" stroke="currentColor" stroke-width="1.3" marker-end="url(#a)"/>
+
+<!-- ══ ⑤ 두 제어기 ══ -->
+<rect x="80" y="582" width="304" height="76" fill="none" stroke="currentColor" stroke-width="1.6"/>
+<text x="232" y="604" text-anchor="middle" font-size="12.5" font-weight="600">⑤ PID — 남은 오차 지우기</text>
+<text x="232" y="622" text-anchor="middle" font-size="10" class="mono">Kp·cte_ctrl + Ki·∫ + Kd·d/dt</text>
+<text x="232" y="639" text-anchor="middle" font-size="10">속도별 게인표 · 적분 ±6 클램프</text>
+<text x="232" y="652" text-anchor="middle" font-size="10" fill="#8A6410">출력 ±9° 로 제한</text>
+
+<rect x="424" y="582" width="176" height="76" fill="none" stroke="currentColor" stroke-width="1.6"/>
+<text x="512" y="604" text-anchor="middle" font-size="12.5" font-weight="600">⑤ Pure Pursuit</text>
+<text x="512" y="623" text-anchor="middle" font-size="10" class="mono">atan2(2L·sin α, LFD)</text>
+<text x="512" y="641" text-anchor="middle" font-size="10">기하학적 본류</text>
+<text x="512" y="654" text-anchor="middle" font-size="10" fill="#78838D">조향의 약 90 %</text>
+
+<!-- 합산 -->
+<path d="M232 658 L232 686 L354 686" fill="none" stroke="currentColor" stroke-width="1.4"/>
+<path d="M512 658 L512 686 L390 686" fill="none" stroke="currentColor" stroke-width="1.4"/>
+<circle cx="372" cy="686" r="15" fill="none" stroke="currentColor" stroke-width="1.5"/>
+<text x="372" y="691" text-anchor="middle" font-size="15">+</text>
+<text x="300" y="678" text-anchor="middle" font-size="10">δ_pid</text>
+<text x="444" y="678" text-anchor="middle" font-size="10">δ_pp</text>
+<line x1="372" y1="701" x2="372" y2="722" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+<!-- ══ ⑥ 후처리 ══ -->
+<rect x="40" y="722" width="560" height="44" fill="none" stroke="currentColor" stroke-width="1.6"/>
+<text x="58" y="740" font-size="12.5" font-weight="600">⑥ 다듬기</text>
+<text x="58" y="757" font-size="10.5">직선 잔떨림 억제 → 평활 0.5 → 슬루 1.3°(직선)·2.5~3.2°(코너) → ±20° 클램프 → 저속 권한 램프</text>
+
+<!-- 발행 → 차량 -->
+<line x1="600" y1="744" x2="646" y2="744" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="646" y="716" width="214" height="56" fill="none" stroke="currentColor" stroke-width="1.6"/>
+<text x="753" y="738" text-anchor="middle" font-size="12.5" font-weight="600">아두이노 → 서보 · 모터</text>
+<text x="753" y="756" text-anchor="middle" font-size="10.5">속도 PID 100 Hz · 조향 ±21°</text>
+
+<!-- 피드백 -->
+<path d="M860 716 L886 716 L886 52 L604 52" fill="none" stroke="#9A4A28" stroke-width="1.6" marker-end="url(#af)"/>
+<text x="868" y="440" text-anchor="middle" font-size="11" fill="#9A4A28"
+      transform="rotate(-90 868 440)">차가 움직인다 → 새 위치·새 헤딩 → 새 오차</text>
+
+</g>
+</svg>
+</div>
+<figcaption><b>조향각은 두 갈래가 더해져 만들어진다.</b>
+Pure Pursuit이 “저 점을 향해 돌아라”라는 기하학적 답을 내고, PID가 “그래도 남는 치우침”을 지운다.
+세 오차(CTE·lead·α)는 모두 <span class="mono">ψ′</span>를 축으로 계산되므로, 헤딩이 틀리면 셋이 한꺼번에 틀어진다.
+붉은 점선은 GPS가 헤딩을 4 %씩 되돌리는 느린 고리이고, 붉은 실선은 차가 실제로 움직여 다음 주기의 오차를 새로 만드는 큰 고리다.</figcaption>
+</figure>
+
+<div class="legend">
+  <span><i class="sw" style="border-color:currentColor"></i> 조향 본류 (20 Hz)</span>
+  <span><i class="sw" style="border-color:#9A4A28;border-top-style:dashed"></i> 헤딩 보정 (5 Hz, 4 %)</span>
+  <span><i class="sw" style="border-color:#9A4A28"></i> 주행 피드백</span>
+</div>
+
+<h2>블록마다 무엇이 들어가고 무엇이 나오는가</h2>
+
+<div class="tw"><table>
+<thead><tr><th>블록</th><th>입력</th><th>출력</th><th class="m">코드</th></tr></thead>
+<tbody>
+<tr><td>① 위치·헤딩 확정</td><td>GPS 좌표, IMU yaw, yaw_offset</td><td>뒷차축 위치, 헤딩 ψ</td><td class="m">gps_imu 613·1023</td></tr>
+<tr><td>96:4 보정</td><td>GPS 궤적 방향, 현재 ψ</td><td>수정된 yaw_offset</td><td class="m">gps_imu 809·912</td></tr>
+<tr><td>② 상태 예측</td><td>위치, ψ, v, ω</td><td>위치′, ψ′ (0.5초 뒤)</td><td class="m">driving 1356–1374</td></tr>
+<tr><td>LFD 결정</td><td>속도, 앞 구간 곡률</td><td>전방주시거리 2.3~2.8 m</td><td class="m">driving 1555–1570</td></tr>
+<tr><td>③ 목표 선정</td><td>위치′, ψ′, 경로, LFD</td><td>wp_idx, 목표점</td><td class="m">driving 1398·1750</td></tr>
+<tr><td>④ CTE</td><td>위치′, ψ′, 경로 선분</td><td>횡방향 오차 [m]</td><td class="m">driving 1208</td></tr>
+<tr><td>④ lead</td><td>경로 접선, ψ′</td><td>선행 보정 [m]</td><td class="m">driving 1525–1529</td></tr>
+<tr><td>④ α</td><td>목표점, 위치′, ψ′</td><td>목표 방위각 [rad]</td><td class="m">driving 1802</td></tr>
+<tr><td>⑤ PID</td><td>cte + lead, 속도</td><td>δ_pid (±9°)</td><td class="m">driving 1836–1839</td></tr>
+<tr><td>⑤ Pure Pursuit</td><td>α, LFD, 휠베이스</td><td>δ_pp</td><td class="m">driving 1803</td></tr>
+<tr><td>⑥ 다듬기</td><td>δ_pp + δ_pid</td><td>최종 조향각 (±20°)</td><td class="m">driving 1869–1897</td></tr>
+</tbody></table></div>
+
+<div class="key"><b>이 그림에서 놓치기 쉬운 두 가지</b>
+<p style="margin:.4rem 0 0">첫째, <b>목표점은 헤딩이 고르지 않는다.</b> 고르는 기준은 “거리가 LFD 이상”이고,
+헤딩은 그 점이 앞인지 뒤인지 판정하는 데만 쓰인다. 헤딩의 진짜 일은 고른 점까지의 <b>각도를 재는 것</b>이다.</p>
+<p style="margin:.5rem 0 0">둘째, <b>붉은 점선 고리와 검은 본류는 속도가 다르다.</b>
+본류는 20 Hz로 돌고, 헤딩 보정은 5 Hz에서 그것도 조건이 맞을 때만 4 %씩 들어간다.
+한 번의 보정이 CTE에 미치는 영향은 1 cm도 안 되고, 5초쯤 쌓여야 비로소 의미가 생긴다.</p></div>
+
+<footer>
+기준 소스 — dododohyeon614-cloud/white_ws @ bae094d · driving.py 1,944행 · gps_imu.py 1,142행<br>
+τ = PREDICT_HORIZON_S 0.50 s · 휠베이스 L = 0.73 m · lead 계수 0.876 m · PID 한계 ±9° · 조향 한계 ±20°
+</footer>
+</div>
+
+</body>
+</html>
